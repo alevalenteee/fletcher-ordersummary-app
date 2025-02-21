@@ -1,0 +1,28 @@
+/* Print Utilities */
+@media print {
+  /* Hide screen elements */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Force backgrounds */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset all backgrounds */
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-white,
+  [class*="bg-"] {
+    background: white !important;
+  }
+
+  /* Reset margins and padding */
+  .max-w-6xl,
+  .max-w-7xl {
+    max-width: none !important;
+    margin: 0 !important;
+  }
+}

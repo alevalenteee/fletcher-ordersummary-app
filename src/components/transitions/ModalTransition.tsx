@@ -1,0 +1,91 @@
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface ModalTransitionProps {
+  children: React.ReactNode;
+  isOpen: boolean;
+  onClose?: () => void;
+}
+
+const modalVariants = {
+  hidden: {
+    opacity: 0,
+    y: '100%',
+    transition: {
+      duration: 0.3,
+      ease: 'easeInOut'
+    }
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      damping: 25,
+      stiffness: 300
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: '100%',
+    transition: {
+      duration: 0.35,
+      ease: [0.32, 0, 0.67, 0]  // Custom easing for smoother exit
+    }
+  }
+};
+
+const overlayVariants = {
+  hidden: { 
+    opacity: 0,
+    transition: {
+      duration: 0.2
+    }
+  },
+  visible: { 
+    opacity: 1,
+    transition: {
+      duration: 0.2
+    }
+  },
+  exit: { 
+    opacity: 0,
+    transition: {
+      duration: 0.3,
+      delay: 0.1  // Slight delay to ensure modal exits first
+    }
+  }
+};
+
+export const ModalTransition: React.FC<ModalTransitionProps> = ({
+  children,
+  isOpen,
+  onClose
+}) => {
+  return (
+    <AnimatePresence mode="sync">
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-50"
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <motion.div
+            variants={overlayVariants}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            variants={modalVariants}
+            className="fixed inset-x-0 bottom-0 pointer-events-auto"
+          >
+            <div className="bg-white rounded-t-xl">
+              {children}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}; 

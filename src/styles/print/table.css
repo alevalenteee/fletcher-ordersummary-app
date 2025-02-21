@@ -1,0 +1,24 @@
+/* Table Styles */
+@media print {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.15cm 0;
+    page-break-inside: avoid;
+  }
+
+  th, td {
+    padding: 0.08cm 0.12cm;
+    border: 1px solid #000;
+    text-align: left;
+    background: white !important;
+    font-size: 8.5pt;
+    line-height: 1.1;
+  }
+
+  th {
+    font-weight: 600;
+    background-color: #f8f8f8 !important;
+    white-space: nowrap;
+  }
+}

@@ -1,0 +1,82 @@
+/* Base transitions */
+.fade-enter {
+  opacity: 0;
+  transform: scale(0.95);
+  will-change: opacity, transform, backdrop-filter;
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-exit {
+  opacity: 1;
+  transform: scale(1);
+  will-change: opacity, transform, backdrop-filter;
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Page transitions */
+.page-enter {
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+.page-enter-active {
+  opacity: 1;
+  transition: opacity 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-exit {
+  opacity: 1;
+  will-change: opacity, transform;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Success animation */
+@keyframes success-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.success-animate {
+  animation: success-pulse 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Gradient animation */
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradient 3s ease infinite;
+}
+
+/* Notification animation */
+/* Remove notification animations since we're using Framer Motion now */
+
+/* Keep any other animations that might be needed */

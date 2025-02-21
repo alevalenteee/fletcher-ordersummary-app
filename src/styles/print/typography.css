@@ -1,0 +1,17 @@
+/* Typography */
+@media print {
+  h1 {
+    font-size: 14pt;
+    margin: 0 0 0.3cm 0;
+  }
+
+  h2 {
+    font-size: 11pt;
+    margin: 0 0 0.2cm 0;
+  }
+
+  .text-red-600,
+  .print\:text-red-700 {
+    color: #dc2626 !important;
+  }
+}

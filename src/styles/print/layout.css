@@ -1,0 +1,44 @@
+/* Print Layout */
+@media print {
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black;
+    line-height: 1.4;
+    font-size: 11pt;
+  }
+
+  .print-container {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+  }
+
+  .print-order {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 0.5cm;
+    background: white !important;
+  }
+
+  .print-order:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Tighter spacing for print container */
+  .print-container {
+    line-height: 1.1;
+  }
+
+  /* Remove extra page */
+  .print-container::after {
+    content: none !important;
+  }
+}
