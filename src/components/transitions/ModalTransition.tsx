@@ -5,6 +5,7 @@ interface ModalTransitionProps {
   children: React.ReactNode;
   isOpen: boolean;
   onClose?: () => void;
+  maxWidth?: string;
 }
 
 const modalVariants = {
@@ -60,7 +61,8 @@ const overlayVariants = {
 export const ModalTransition: React.FC<ModalTransitionProps> = ({
   children,
   isOpen,
-  onClose
+  onClose,
+  maxWidth = "600px"
 }) => {
   return (
     <AnimatePresence mode="sync">
@@ -78,9 +80,12 @@ export const ModalTransition: React.FC<ModalTransitionProps> = ({
           />
           <motion.div
             variants={modalVariants}
-            className="fixed inset-x-0 bottom-0 pointer-events-auto"
+            className="fixed inset-x-0 bottom-0 pointer-events-auto flex justify-center"
           >
-            <div className="bg-white rounded-t-xl">
+            <div 
+              className="bg-white rounded-t-xl w-full md:w-auto"
+              style={{ maxWidth }}
+            >
               {children}
             </div>
           </motion.div>
