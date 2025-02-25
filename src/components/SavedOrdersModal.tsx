@@ -42,7 +42,7 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
   };
 
   return (
-    <ModalTransition isOpen={isOpen} onClose={onClose} maxWidth="1000px">
+    <ModalTransition isOpen={isOpen} onClose={onClose}>
       <div className="p-6 max-h-[80vh] overflow-y-auto w-full custom-scrollbar">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">Saved Orders</h2>

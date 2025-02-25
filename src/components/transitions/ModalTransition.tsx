@@ -5,7 +5,6 @@ interface ModalTransitionProps {
   children: React.ReactNode;
   isOpen: boolean;
   onClose?: () => void;
-  maxWidth?: string;
 }
 
 const modalVariants = {
@@ -61,8 +60,7 @@ const overlayVariants = {
 export const ModalTransition: React.FC<ModalTransitionProps> = ({
   children,
   isOpen,
-  onClose,
-  maxWidth = "600px"
+  onClose
 }) => {
   return (
     <AnimatePresence mode="wait">
