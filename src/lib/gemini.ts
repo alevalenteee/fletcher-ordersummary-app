@@ -135,6 +135,11 @@ export async function analyzePDFContent(
         if (!isValidProduct) {
           // Extract description from the response
           const description = product.description || 'Unknown product';
+          
+          // Extract any codes in parentheses from the description
+          const codeInParenthesesMatch = description.match(/\(([^)]+)\)/);
+          const secondaryCode = codeInParenthesesMatch ? codeInParenthesesMatch[1].trim() : '';
+          
           const type = description.toLowerCase().includes('roll') ? 'Roll' :
                       description.toLowerCase().includes('board') ? 'Board' :
                       description.toLowerCase().includes('pallet') ? 'Pallet' : 'Batt';
@@ -143,7 +148,8 @@ export async function analyzePDFContent(
           product.manualDetails = {
             type,
             category: 'Unknown Product',
-            description
+            description,
+            secondaryCode // Store any code found in parentheses
           };
         }
         

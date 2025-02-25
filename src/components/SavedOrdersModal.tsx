@@ -22,8 +22,6 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
   const navigate = useNavigate();
   const [deletingIndex, setDeletingIndex] = React.useState<number | null>(null);
 
-  if (!isOpen) return null;
-
   const handleDelete = async (index: number) => {
     try {
       setDeletingIndex(index);
@@ -44,8 +42,8 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
   };
 
   return (
-    <ModalTransition isOpen={isOpen} onClose={onClose} maxWidth="500px">
-      <div className="p-6 max-h-[80vh] overflow-y-auto w-full">
+    <ModalTransition isOpen={isOpen} onClose={onClose} maxWidth="1000px">
+      <div className="p-6 max-h-[80vh] overflow-y-auto w-full custom-scrollbar">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">Saved Orders</h2>
           <button

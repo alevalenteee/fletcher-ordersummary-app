@@ -2,6 +2,7 @@ import React from 'react';
 import { Order, Product } from '@/types';
 import { PrintHeader, PrintOrder } from './print';
 import { LoadingModal } from './ui/LoadingModal';
+import { sortOrdersByTime } from '@/utils/time';
 import '../styles/print.css';
 
 interface PrintViewProps {
@@ -13,6 +14,11 @@ export const PrintView: React.FC<PrintViewProps> = ({ productData, orders }) => 
   const [fontSize, setFontSize] = React.useState(12);
   const [loading, setLoading] = React.useState(true);
   const [error] = React.useState<string | null>(null);
+
+  // Sort orders by time
+  const sortedOrders = React.useMemo(() => {
+    return sortOrdersByTime(orders);
+  }, [orders]);
 
   React.useEffect(() => {
     document.title = 'Orders Summary - Print View';
@@ -57,12 +63,12 @@ export const PrintView: React.FC<PrintViewProps> = ({ productData, orders }) => 
           </div>
           
           <div className="space-y-4 print:space-y-6">
-            {orders.map((order, index) => (
+            {sortedOrders.map((order, index) => (
               <PrintOrder
                 key={`${order.id}-${order.manifestNumber}`}
                 order={order}
                 productData={productData}
-                isLast={index === orders.length - 1}
+                isLast={index === sortedOrders.length - 1}
               />
             ))}
           </div>

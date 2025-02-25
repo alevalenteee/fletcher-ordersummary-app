@@ -15,6 +15,7 @@ export interface OrderProduct {
     description: string;
     type: 'Batt' | 'Roll' | 'Board' | 'Pallet';
     packsPerBale?: number;
+    secondaryCode?: string;
   };
 }
 

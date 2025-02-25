@@ -36,7 +36,9 @@ export const TableRow: React.FC<TableRowProps> = ({
         {!details && !isEditing && product.manualDetails ? (
           <div>
             <div className="font-medium">{product.manualDetails.category}</div>
-            <div className="text-sm text-gray-600">{product.manualDetails.description}</div>
+            <div className="text-sm text-gray-600">
+              {product.manualDetails.description}
+            </div>
           </div>
         ) : (
           <ProductName 
@@ -53,7 +55,11 @@ export const TableRow: React.FC<TableRowProps> = ({
         )}
       </td>
       <td className="hidden sm:table-cell p-3 truncate text-base">
-        <ProductCode details={details} code={product.productCode} />
+        <ProductCode 
+          details={details} 
+          code={product.productCode} 
+          manualDetails={product.manualDetails}
+        />
       </td>
       <td className="hidden sm:table-cell p-3 truncate text-base">{product.packsOrdered}</td>
       <td className="hidden sm:table-cell p-3 truncate text-base">
@@ -68,7 +74,7 @@ export const TableRow: React.FC<TableRowProps> = ({
       {/* Mobile View */}
       <td className="sm:hidden p-3 space-y-1" colSpan={4}>
         <div className="flex justify-between items-start">
-          <div>
+          <div className="max-w-[60%] pr-2">
             {details || product.manualDetails ? (
               <div className="font-medium">
                 {details ? (
@@ -81,7 +87,7 @@ export const TableRow: React.FC<TableRowProps> = ({
                 ) : (
                   <>
                     {product.manualDetails?.category}
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-600 break-words">
                       {product.manualDetails?.description}
                     </div>
                   </>
@@ -111,7 +117,11 @@ export const TableRow: React.FC<TableRowProps> = ({
               />
             </div>
             <div className="text-sm text-gray-500">
-              <ProductCode details={details} code={product.productCode} />
+              <ProductCode 
+                details={details} 
+                code={product.productCode} 
+                manualDetails={product.manualDetails}
+              />
             </div>
           </div>
         </div>
