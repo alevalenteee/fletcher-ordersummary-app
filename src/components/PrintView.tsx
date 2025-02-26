@@ -41,7 +41,7 @@ export const PrintView: React.FC<PrintViewProps> = ({ productData, orders }) => 
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white p-8">
+      <div className="bg-white p-8">
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
           {error}
         </div>
@@ -50,7 +50,7 @@ export const PrintView: React.FC<PrintViewProps> = ({ productData, orders }) => 
   }
 
   return (
-    <div className="min-h-screen bg-white print:min-h-0">
+    <div className="bg-white screen:min-h-screen print:min-h-0 print:h-auto">
       <div className="print-container" style={{ fontSize: `${fontSize}pt` }}>
         <PrintHeader
           fontSize={fontSize}

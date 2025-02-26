@@ -65,7 +65,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({ children, locati
           stiffness: 260,
           damping: 20,
         }}
-        className="min-h-screen"
+        className="screen:min-h-screen print:min-h-0 print:h-auto"
       >
         {children}
       </motion.div>

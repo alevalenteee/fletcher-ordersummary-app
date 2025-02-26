@@ -18,7 +18,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   };
   
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="screen:min-h-screen print:min-h-0 print:h-auto bg-gray-100 print:bg-white">
       <header className={`bg-white border-b border-gray-200 py-4 sm:py-6 ${isLiveLoading ? '' : 'mb-6'} print:hidden`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-center text-2xl sm:text-4xl font-bold tracking-tight">
@@ -32,7 +32,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0">
         <PageTransition location={location.pathname}>
           {children}
         </PageTransition>

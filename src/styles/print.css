@@ -14,6 +14,8 @@
     color: black;
     line-height: 1.4;
     font-size: 11pt;
+    min-height: 0 !important;
+    height: auto !important;
   }
 
   /* Container setup */
@@ -22,6 +24,8 @@
     margin: 0;
     padding: 0;
     background: white !important;
+    min-height: 0 !important;
+    height: auto !important;
   }
 
   /* Order section */
@@ -119,5 +123,18 @@
   /* Remove extra page */
   .print-container::after {
     content: none !important;
+  }
+
+  /* Fix height issues */
+  .min-h-screen,
+  [class*="min-h-"] {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  /* Ensure no forced page breaks */
+  div, section, main {
+    page-break-after: auto;
+    page-break-before: auto;
   }
 }
