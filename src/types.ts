@@ -13,10 +13,18 @@ export interface OrderProduct {
   manualDetails?: {
     category: string;
     description: string;
-    type: 'Batt' | 'Roll' | 'Board' | 'Pallet';
+    type: 'Batt' | 'Roll' | 'Board' | 'Pallet' | 'Unknown';
     packsPerBale?: number;
     secondaryCode?: string;
   };
+}
+
+export interface Profile {
+  id: string;
+  name: string;
+  color: string;
+  is_default: boolean;
+  created_at?: string;
 }
 
 export interface Order {
@@ -27,6 +35,7 @@ export interface Order {
   products: OrderProduct[];
   user_id?: string;
   created_at?: string;
+  profile_id?: string;
 }
 
 export interface ProductDetails extends Product {

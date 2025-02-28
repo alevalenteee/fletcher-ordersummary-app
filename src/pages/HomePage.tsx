@@ -4,11 +4,11 @@ import { OrderForm } from '@/components/OrderForm';
 import { OrdersList } from '@/components/OrdersList';
 import { SavedOrdersModal } from '@/components/SavedOrdersModal';
 import { PDFAnalyzer } from '@/components/PDFAnalyzer';
-import { Order, Product } from '@/types';
+import { Order, Product, Profile } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Archive } from 'lucide-react';
-import { useOrders } from '@/hooks/useOrders';
 import { LoadingModal } from '@/components/ui/LoadingModal';
+import { ProfileSelector } from '@/components/ProfileSelector';
 
 interface HomePageProps {
   productData: Product[];
@@ -17,10 +17,16 @@ interface HomePageProps {
   onOrderSubmit: (order: Order) => Promise<void>;
   onEditOrder: (index: number) => void;
   onDeleteOrder: (index: number) => Promise<void>;
-  // @ts-ignore - Prop required by parent component but not used here
-  onSaveOrders: () => Promise<void>;
   editingOrder: Order | null;
   orders: Order[];
+  loading?: boolean;
+  error?: string | null;
+  profiles?: Profile[];
+  currentProfile?: Profile | null;
+  onSwitchProfile?: (id: string) => void;
+  onCreateProfile?: (profile: Omit<Profile, 'id' | 'created_at'>) => void;
+  onUpdateProfile?: (id: string, updates: Partial<Omit<Profile, 'id' | 'created_at'>>) => void;
+  onDeleteProfile?: (id: string) => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -30,17 +36,29 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOrderSubmit,
   onEditOrder,
   onDeleteOrder,
-  // @ts-ignore - Prop required by parent component but not used here
-  onSaveOrders,
   editingOrder,
-  orders
+  orders,
+  loading = false,
+  error = null,
+  profiles = [],
+  currentProfile = null,
+  onSwitchProfile = () => {},
+  onCreateProfile = () => {},
+  onUpdateProfile = () => {},
+  onDeleteProfile = () => {}
 }) => {
   const [showSavedOrders, setShowSavedOrders] = React.useState(false);
-  const {
-    loading,
-    isSubmitting,
-    error,
-  } = useOrders();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Track submitting state for orders
+  const handleOrderSubmitWithLoading = async (order: Order) => {
+    setIsSubmitting(true);
+    try {
+      await onOrderSubmit(order);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -65,16 +83,29 @@ export const HomePage: React.FC<HomePageProps> = ({
     <>
       <LoadingModal isOpen={isSubmitting} message="Updating Orders..." />
       
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-        <div className="w-full sm:w-auto" />
-        <Button
-          variant="outline"
-          onClick={() => setShowSavedOrders(true)}
-          className="flex items-center gap-2 w-full sm:w-auto"
-        >
-          <Archive className="w-5 h-5" />
-          View Orders
-        </Button>
+      <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="w-full order-1 sm:order-1 sm:w-auto">
+            {currentProfile && (
+              <ProfileSelector
+                profiles={profiles}
+                currentProfile={currentProfile}
+                onSwitchProfile={onSwitchProfile}
+                onCreateProfile={onCreateProfile}
+                onUpdateProfile={onUpdateProfile}
+                onDeleteProfile={onDeleteProfile}
+              />
+            )}
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowSavedOrders(true)}
+            className="flex items-center justify-center gap-2 w-full order-2 sm:order-2 sm:w-auto"
+          >
+            <Archive className="w-5 h-5" />
+            View Orders
+          </Button>
+        </div>
       </div>
 
       <FileUpload 
@@ -87,19 +118,24 @@ export const HomePage: React.FC<HomePageProps> = ({
       <PDFAnalyzer
         productData={productData}
         onOrdersAnalyzed={async (analyzedOrders) => {
-          for (const order of analyzedOrders) {
-            try {
-              await onOrderSubmit(order);
-            } catch (error) {
-              console.error('Error submitting order:', error);
+          setIsSubmitting(true);
+          try {
+            for (const order of analyzedOrders) {
+              try {
+                await onOrderSubmit(order);
+              } catch (error) {
+                console.error('Error submitting order:', error);
+              }
             }
+          } finally {
+            setIsSubmitting(false);
           }
         }}
       />
       
       <OrderForm
         productData={productData}
-        onSubmit={onOrderSubmit}
+        onSubmit={handleOrderSubmitWithLoading}
         initialOrder={editingOrder}
       />
       
@@ -109,10 +145,13 @@ export const HomePage: React.FC<HomePageProps> = ({
         onEditOrder={onEditOrder}
         onDeleteOrder={onDeleteOrder}
         onUpdateOrder={async (_, updatedOrder) => {
+          setIsSubmitting(true);
           try {
             await onOrderSubmit(updatedOrder);
           } catch (error) {
             console.error('Error updating order:', error);
+          } finally {
+            setIsSubmitting(false);
           }
         }}
       />

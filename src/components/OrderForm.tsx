@@ -12,7 +12,7 @@ interface OrderFormProps {
 
 const DESTINATIONS = [
   'ARNDELL', 'BANYO', 'SALISBURY', 'DERRIMUT', 'MOONAH',
-  'JANDAKOT', 'GEPPS CROSS', 'BARON', 'SHEPPARTON', 'EE-FIT'
+  'JANDAKOT', 'GEPPS CROSS', 'BARON', 'SHEPPARTON', 'EE-FIT', 'CANBERRA'
 ];
 
 const TIMES = Array.from({ length: 24 }, (_, i) => 

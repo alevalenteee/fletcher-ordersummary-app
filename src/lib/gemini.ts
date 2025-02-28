@@ -102,7 +102,7 @@ export async function analyzePDFContent(
       // Validate destination against allowed values
       const validDestinations = [
         'ARNDELL', 'BANYO', 'SALISBURY', 'DERRIMUT', 'MOONAH',
-        'JANDAKOT', 'GEPPS CROSS', 'BARON', 'SHEPPARTON', 'EE-FIT'
+        'JANDAKOT', 'GEPPS CROSS', 'BARON', 'SHEPPARTON', 'EE-FIT', 'CANBERRA'
       ];
 
       if (!validDestinations.includes(parsedOrder.destination.toUpperCase())) {
@@ -140,16 +140,13 @@ export async function analyzePDFContent(
           const codeInParenthesesMatch = description.match(/\(([^)]+)\)/);
           const secondaryCode = codeInParenthesesMatch ? codeInParenthesesMatch[1].trim() : '';
           
-          const type = description.toLowerCase().includes('roll') ? 'Roll' :
-                      description.toLowerCase().includes('board') ? 'Board' :
-                      description.toLowerCase().includes('pallet') ? 'Pallet' : 'Batt';
-          
           console.warn(`Unknown product code found: ${code}`);
           product.manualDetails = {
-            type,
+            type: 'Unknown',
             category: 'Unknown Product',
             description,
-            secondaryCode // Store any code found in parentheses
+            secondaryCode, // Store any code found in parentheses
+            packsPerBale: 1 // Set packsPerBale to 1 to ensure output is displayed as units
           };
         }
         

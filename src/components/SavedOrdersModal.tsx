@@ -33,6 +33,7 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
 
   const handleStartLoading = () => {
     onClose();
+    localStorage.removeItem('liveLoadingState');
     navigate('/live-loading');
   };
 

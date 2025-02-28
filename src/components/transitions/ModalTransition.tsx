@@ -5,6 +5,7 @@ interface ModalTransitionProps {
   children: React.ReactNode;
   isOpen: boolean;
   onClose?: () => void;
+  maxWidth?: string;
 }
 
 const modalVariants = {
@@ -60,7 +61,8 @@ const overlayVariants = {
 export const ModalTransition: React.FC<ModalTransitionProps> = ({
   children,
   isOpen,
-  onClose
+  onClose,
+  maxWidth
 }) => {
   return (
     <AnimatePresence mode="wait">
@@ -87,7 +89,8 @@ export const ModalTransition: React.FC<ModalTransitionProps> = ({
               className="bg-white rounded-t-xl w-full md:w-auto sm:max-w-[80%] max-w-[1000px]"
               style={{ 
                 minWidth: '320px',
-                width: '100%'
+                width: '100%',
+                maxWidth: maxWidth || '1000px'
               }}
             >
               {children}
