@@ -17,12 +17,6 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ 
   children,
-  profiles,
-  currentProfile,
-  onSwitchProfile,
-  onCreateProfile,
-  onUpdateProfile,
-  onDeleteProfile,
   profilesLoading = false
 }) => {
   const location = useLocation();
@@ -56,7 +50,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0">
         <PageTransition location={location.pathname}>
-          {/* Pass all profile props directly to the children */}
           {children}
         </PageTransition>
       </main>
