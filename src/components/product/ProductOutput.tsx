@@ -17,15 +17,29 @@ export const ProductOutput: React.FC<ProductOutputProps> = ({
 }) => {
   if (manualDetails) {
     const packsNum = parseFloat(packs);
-    if (manualDetails.packsPerBale) {
-      const bales = packsNum / manualDetails.packsPerBale;
-      return (
-        <strong>
-          {Number.isInteger(bales) ? bales : bales.toFixed(1)} Bales
-        </strong>
-      );
+    
+    // For Unknown type, always display as Units (for AI-analyzed unknown products)
+    if (manualDetails.type === 'Unknown') {
+      return <strong>{packsNum} Units</strong>;
     }
-    return <strong>{packsNum} {manualDetails.type === 'Pallet' ? 'Pallets' : 'Units'}</strong>;
+    
+    // For Batt or Roll types, display in Bales
+    if (manualDetails.type === 'Batt' || manualDetails.type === 'Roll') {
+      if (manualDetails.packsPerBale) {
+        const bales = packsNum / manualDetails.packsPerBale;
+        return (
+          <strong>
+            {Number.isInteger(bales) ? bales : bales.toFixed(1)} Bales
+          </strong>
+        );
+      } else {
+        // If packsPerBale is not defined, assume 1 pack = 1 bale
+        return <strong>{packsNum} Bales</strong>;
+      }
+    }
+    
+    // For Board or Pallet types, display in Units
+    return <strong>{packsNum} Units</strong>;
   }
 
   const output = convertToOutput(code, packs, productData);

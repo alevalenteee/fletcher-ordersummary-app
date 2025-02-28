@@ -6,17 +6,29 @@ import { ChevronLeft, Plus, Minus, Check, Truck, Save, X } from 'lucide-react';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { QuantityNotification } from '@/components/ui/QuantityNotification';
 import { supabase } from '@/lib/supabase';
+import { useProfiles } from '@/hooks/useProfiles';
 
 interface LoadingProgress {
   [key: string]: number | boolean;
 }
 
+// Extend OrderProduct type to include uniqueId
+interface ExtendedOrderProduct extends OrderProduct {
+  uniqueId: string;
+}
+
+// Extend Order type to include products with uniqueId
+interface ExtendedOrder extends Omit<Order, 'products'> {
+  products: ExtendedOrderProduct[];
+}
+
 export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productData }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [orders, setOrders] = React.useState<Order[]>([]);
-  const [selectedOrder, setSelectedOrder] = React.useState<Order | null>(null);
-  const [selectedProduct, setSelectedProduct] = React.useState<OrderProduct | null>(null);
+  const { currentProfile } = useProfiles();
+  const [orders, setOrders] = React.useState<ExtendedOrder[]>([]);
+  const [selectedOrder, setSelectedOrder] = React.useState<ExtendedOrder | null>(null);
+  const [selectedProduct, setSelectedProduct] = React.useState<ExtendedOrderProduct | null>(null);
   const [loadingProgress, setLoadingProgress] = React.useState<LoadingProgress>({});
   const [sessionId, setSessionId] = React.useState<string>('');
   const [lastSaved, setLastSaved] = React.useState(false);
@@ -37,16 +49,61 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
   });
   const lastStateRef = React.useRef<{
     orderId?: string;
-    productCode?: string;
+    uniqueId?: string;
   }>({});
   const MAX_RETRIES = 3;
+
+  // Generate unique IDs for products when orders are loaded
+  React.useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        // Start building the query
+        let query = supabase
+          .from('orders')
+          .select('*');
+        
+        // If a profile ID is provided, filter orders by that profile
+        if (currentProfile?.id) {
+          query = query.eq('profile_id', currentProfile.id);
+        }
+        
+        // Execute the query with sorting
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        // Transform the data to match our Order interface and add uniqueIds to products
+        const transformedOrders = (data || []).map(order => {
+          const products = (order.products || []).map((product: OrderProduct, index: number) => ({
+            ...product,
+            uniqueId: `${order.id}_${product.productCode}_${index}`
+          }));
+          
+          return {
+            ...order,
+            manifestNumber: order.manifest_number,
+            products
+          };
+        });
+        
+        setOrders(transformedOrders);
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+        setError('Failed to fetch orders');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [currentProfile]);
 
   // Save current state
   React.useEffect(() => {
     try {
       const state = {
         orderId: selectedOrder?.id,
-        productCode: selectedProduct?.productCode
+        uniqueId: selectedProduct?.uniqueId
       };
       localStorage.setItem('liveLoadingState', JSON.stringify(state));
       lastStateRef.current = state;
@@ -57,62 +114,92 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
 
   // Restore state on mount
   React.useEffect(() => {
-    try {
-      const savedState = localStorage.getItem('liveLoadingState');
-      if (savedState) {
-        const { orderId, productCode } = JSON.parse(savedState);
+    const restoreState = async () => {
+      try {
+        const savedState = localStorage.getItem('liveLoadingState');
+        if (!savedState) return;
         
-        // Restore order selection
+        const { orderId, uniqueId } = JSON.parse(savedState);
+        
+        // Verify the order exists in the database
         if (orderId) {
-          const order = orders.find(o => o.id === orderId);
-          if (order) {
-            setSelectedOrder(order);
+          // First check in memory orders 
+          const orderInMemory = orders.find(o => o.id === orderId);
+          
+          if (!orderInMemory && orders.length > 0) {
+            // If not found in memory but orders are loaded, verify against database
+            const { data, error } = await supabase
+              .from('orders')
+              .select('*')
+              .eq('id', orderId)
+              .maybeSingle();
+              
+            if (error || !data) {
+              console.log('Order not found in database, clearing saved state');
+              localStorage.removeItem('liveLoadingState');
+              return;
+            }
+          }
+          
+          // Now proceed with restoration if order exists
+          if (orderInMemory) {
+            setSelectedOrder(orderInMemory);
             
             // Restore product selection
-            if (productCode) {
-              const product = order.products.find(p => p.productCode === productCode);
+            if (uniqueId) {
+              const product = orderInMemory.products.find(p => p.uniqueId === uniqueId);
               if (product) {
                 setSelectedProduct(product);
               }
             }
           }
         }
+      } catch (error) {
+        console.error('Error restoring live loading state:', error);
+        // Clear potentially corrupted state
+        localStorage.removeItem('liveLoadingState');
       }
-    } catch (error) {
-      console.error('Error restoring live loading state:', error);
-    }
+    };
+    
+    restoreState();
   }, [orders]);
 
   // Clear state when navigating away
   React.useEffect(() => {
     return () => {
-      if (lastStateRef.current.orderId) {
-        localStorage.removeItem('liveLoadingState');
+      // Always clear the local storage state when unmounting the component
+      localStorage.removeItem('liveLoadingState');
+      
+      // Clear any timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
+      
+      // Reset all state
+      setSelectedOrder(null);
+      setSelectedProduct(null);
+      setLoadingProgress({});
     };
   }, []);
 
-  // Fetch orders on mount
+  // Handle selected order from navigation
   React.useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setOrders(data || []);
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to fetch orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrders();
-  }, []);
+    const state = location.state as { selectedOrder?: Order };
+    if (state?.selectedOrder) {
+      // Add uniqueIds to the products of the selected order
+      const orderWithUniqueIds = {
+        ...state.selectedOrder,
+        products: (state.selectedOrder.products || []).map((product: OrderProduct, index: number) => ({
+          ...product,
+          uniqueId: `${state.selectedOrder?.id || 'temp'}_${product.productCode}_${index}`
+        }))
+      } as ExtendedOrder;
+      
+      setSelectedOrder(orderWithUniqueIds);
+      // Clean up the state so refreshing doesn't reselect
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state]);
 
   // Initialize or load existing session
   React.useEffect(() => {
@@ -210,39 +297,83 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
     };
   }, [loadingProgress, sessionId, retryCount]);
 
-  // Handle selected order from navigation
+  // Clean up stale load sessions
   React.useEffect(() => {
-    const state = location.state as { selectedOrder?: Order };
-    if (state?.selectedOrder) {
-      setSelectedOrder(state.selectedOrder);
-      // Clean up the state so refreshing doesn't reselect
-      navigate(location.pathname, { replace: true });
+    const cleanupStaleSessions = async () => {
+      try {
+        // Get all load sessions
+        const { data: sessions, error: fetchError } = await supabase
+          .from('load_sessions')
+          .select('*');
+          
+        if (fetchError) throw fetchError;
+        
+        if (sessions && sessions.length > 0) {
+          // Get all valid order destination and time combinations
+          const validOrderKeys = orders.map(order => `${order.destination}_${order.time}`);
+          
+          // Find sessions that don't match any current orders
+          const staleSessions = sessions.filter(session => 
+            // Check for no matching destination+time
+            !validOrderKeys.includes(`${session.destination}_${session.time}`)
+          );
+          
+          // Delete stale sessions
+          if (staleSessions.length > 0) {
+            console.log(`Cleaning up ${staleSessions.length} stale load sessions`);
+            
+            for (const session of staleSessions) {
+              await supabase
+                .from('load_sessions')
+                .delete()
+                .eq('id', session.id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error cleaning up stale sessions:', err);
+      }
+    };
+    
+    // Run cleanup immediately on mount
+    cleanupStaleSessions();
+    
+    // And again whenever orders change
+    if (orders.length > 0 && !loading) {
+      cleanupStaleSessions();
     }
-  }, [location.state]);
+  }, [orders, loading]);
 
-  const getConvertedQuantity = (product: OrderProduct): { current: number, target: number } => {
+  const getConvertedQuantity = (product: ExtendedOrderProduct): { current: number, target: number } => {
     const packsOrdered = parseInt(product.packsOrdered);
     const details = getProductDetails(product.productCode, productData);
     const manualDetails = product.manualDetails;
+    const uniqueId = product.uniqueId;
     
     // Handle target output
     let targetOutput: number;
     if (details) {
       const converted = convertToOutput(product.productCode, product.packsOrdered, productData);
       targetOutput = typeof converted === 'number' ? converted : 0;
+    } else if (manualDetails?.type === 'Unknown') {
+      // For AI-analyzed unknown products, use packs as units (1:1 ratio)
+      targetOutput = packsOrdered;
     } else if (manualDetails?.packsPerBale) {
       targetOutput = packsOrdered / manualDetails.packsPerBale;
     } else {
       targetOutput = packsOrdered;
     }
 
-    const currentPacks = loadingProgress[product.productCode] || 0;
+    const currentPacks = loadingProgress[uniqueId] || 0;
     
     // Handle current output
     let currentOutput: number;
     if (details) {
       const converted = convertToOutput(product.productCode, String(currentPacks), productData);
       currentOutput = typeof converted === 'number' ? converted : 0;
+    } else if (manualDetails?.type === 'Unknown') {
+      // For AI-analyzed unknown products, use packs as units (1:1 ratio)
+      currentOutput = currentPacks as number;
     } else if (manualDetails?.packsPerBale) {
       currentOutput = (currentPacks as number) / manualDetails.packsPerBale;
     } else {
@@ -291,50 +422,54 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
     }
 
     const targetPacks = parseInt(selectedProduct.packsOrdered);
+    const uniqueId = selectedProduct.uniqueId;
 
     setLoadingProgress(prev => {
-      const currentPacks = prev[selectedProduct.productCode] || 0;
+      const currentPacks = prev[uniqueId] || 0;
       const newPacks = Math.max(0, (currentPacks as number) + packIncrement);
       
       // Auto mark as complete when reaching or exceeding target
-      if (newPacks >= targetPacks && !prev[`${selectedProduct.productCode}_complete`]) {
+      if (newPacks >= targetPacks && !prev[`${uniqueId}_complete`]) {
         return {
           ...prev,
-          [selectedProduct.productCode]: newPacks,
-          [`${selectedProduct.productCode}_complete`]: true
+          [uniqueId]: newPacks,
+          [`${uniqueId}_complete`]: true
         };
       }
       
       return {
         ...prev,
-        [selectedProduct.productCode]: newPacks
+        [uniqueId]: newPacks
       };
     });
   };
 
   const handleRemoveAll = () => {
     if (!selectedProduct) return;
+    const uniqueId = selectedProduct.uniqueId;
+    
     setLoadingProgress(prev => ({
       ...prev,
-      [selectedProduct.productCode]: 0,
-      [`${selectedProduct.productCode}_complete`]: false
+      [uniqueId]: 0,
+      [`${uniqueId}_complete`]: false
     }));
   };
 
   const toggleComplete = () => {
     if (!selectedProduct) return;
+    const uniqueId = selectedProduct.uniqueId;
     
-    const isCurrentlyComplete = loadingProgress[`${selectedProduct.productCode}_complete`];
+    const isCurrentlyComplete = loadingProgress[`${uniqueId}_complete`];
     
     setLoadingProgress(prev => ({
       ...prev,
-      [`${selectedProduct.productCode}_complete`]: !isCurrentlyComplete
+      [`${uniqueId}_complete`]: !isCurrentlyComplete
     }));
   };
 
-  const getProgressStatus = (product: OrderProduct) => {
+  const getProgressStatus = (product: ExtendedOrderProduct) => {
     const { current } = getConvertedQuantity(product);
-    const isMarkedComplete = loadingProgress[`${product.productCode}_complete`];
+    const isMarkedComplete = loadingProgress[`${product.uniqueId}_complete`];
     
     if (isMarkedComplete) return 'completed';
     if (current === 0) return 'not-started';    
@@ -436,7 +571,7 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
             <h2 className="text-xl font-semibold mb-4">
               {selectedOrder.destination} - {selectedOrder.time}
             </h2>
-            {selectedOrder.products.map((product, index) => {
+            {selectedOrder.products.map((product) => {
               const details = getProductDetails(product.productCode, productData);
               const status = getProgressStatus(product);
               const { current, target } = getConvertedQuantity(product);
@@ -444,7 +579,7 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
               
               return (
                 <button
-                  key={index}
+                  key={product.uniqueId}
                   onClick={() => setSelectedProduct(product)}
                   className={`w-full p-6 rounded-lg shadow-sm border-2 text-left transition-colors relative ${
                     getProgressColor(status)
@@ -482,7 +617,6 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
                       {current} / {target} {
                         details ? unit :
                         product.manualDetails?.packsPerBale ? 'Bales' :
-                        product.manualDetails?.type === 'Pallet' ? 'Pallets' :
                         'Units'
                       }
                       </div>
@@ -496,7 +630,7 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
                       </div>
                     </div>
                     <div className="text-xl text-gray-600">
-                      {loadingProgress[product.productCode] || 0} packs loaded
+                      {loadingProgress[product.uniqueId] || 0} packs loaded
                     </div>
                   </div>
                 </button>
@@ -512,7 +646,8 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
                 const unit = getOutputUnit(selectedProduct.productCode, productData);
                 const manualDetails = selectedProduct.manualDetails;
                 const status = getProgressStatus(selectedProduct);
-                const currentPacks = loadingProgress[selectedProduct.productCode] || 0;
+                const uniqueId = selectedProduct.uniqueId;
+                const currentPacks = loadingProgress[uniqueId] || 0;
 
                 return (
                   <>
@@ -545,7 +680,6 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
                           {current} / {target} {
                             details ? unit :
                             manualDetails?.packsPerBale ? 'Bales' :
-                            manualDetails?.type === 'Pallet' ? 'Pallets' :
                             'Units'
                           }
                         </div>
@@ -570,12 +704,12 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
               <button
                 onClick={toggleComplete}
                 className={`w-full p-4 rounded-lg text-xl font-medium flex items-center justify-center gap-2 ${
-                  loadingProgress[`${selectedProduct.productCode}_complete`]
+                  loadingProgress[`${selectedProduct.uniqueId}_complete`]
                     ? 'bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700'
                     : 'bg-green-600 hover:bg-green-700 active:bg-green-800'
                 } text-white`}
               >
-                {loadingProgress[`${selectedProduct.productCode}_complete`] ? (
+                {loadingProgress[`${selectedProduct.uniqueId}_complete`] ? (
                   <>
                     <X className="w-6 h-6" />
                     Mark as Incomplete
@@ -601,7 +735,6 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
                       title={`Remove 1 ${
                         details ? 'Bale' :
                         selectedProduct.manualDetails?.packsPerBale ? 'Bale' :
-                        selectedProduct.manualDetails?.type === 'Pallet' ? 'Pallet' :
                         'Unit'
                       }`}
                     >
@@ -632,7 +765,6 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
                     title={`Add ${num} ${
                       details ? 'Bales' :
                       selectedProduct.manualDetails?.packsPerBale ? 'Bales' :
-                      selectedProduct.manualDetails?.type === 'Pallet' ? 'Pallets' :
                       'Units'
                     }`}
                   >
