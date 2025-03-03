@@ -1,5 +1,6 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { X } from 'lucide-react';
 
 interface ModalTransitionProps {
   children: React.ReactNode;
@@ -64,6 +65,14 @@ export const ModalTransition: React.FC<ModalTransitionProps> = ({
   onClose,
   maxWidth
 }) => {
+  // Handle swipe down gesture
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // If the user has dragged down more than 100px, close the modal
+    if (info.offset.y > 100 && onClose) {
+      onClose();
+    }
+  };
+
   return (
     <AnimatePresence mode="wait">
       {isOpen && (
@@ -84,15 +93,33 @@ export const ModalTransition: React.FC<ModalTransitionProps> = ({
             key="modal-content"
             variants={modalVariants}
             className="fixed inset-x-0 bottom-0 pointer-events-auto flex justify-center"
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0.7}
+            onDragEnd={handleDragEnd}
+            dragDirectionLock
+            dragMomentum={false}
           >
             <div 
-              className="bg-white rounded-t-xl w-full md:w-auto sm:max-w-[80%] max-w-[1000px]"
+              className="bg-white rounded-t-xl w-full md:w-auto sm:max-w-[80%] max-w-[1000px] relative"
               style={{ 
                 minWidth: '320px',
                 width: '100%',
                 maxWidth: maxWidth || '1000px'
               }}
             >
+              {/* Swipe indicator for mobile */}
+              <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-2 mb-1 md:hidden" />
+              
+              {/* Close button for desktop */}
+              <button 
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 hidden md:flex items-center justify-center"
+                onClick={onClose}
+                aria-label="Close modal"
+              >
+                <X size={24} />
+              </button>
+              
               {children}
             </div>
           </motion.div>

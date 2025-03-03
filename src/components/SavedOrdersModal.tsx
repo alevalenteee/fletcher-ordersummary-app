@@ -1,7 +1,7 @@
 import React from 'react';
 import { Order } from '@/types';
 import { ModalTransition } from './transitions/ModalTransition';
-import { X, Truck, Trash2, InboxIcon } from 'lucide-react';
+import { Truck, Trash2, InboxIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -44,16 +44,8 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
 
   return (
     <ModalTransition isOpen={isOpen} onClose={onClose}>
-      <div className="p-6 max-h-[80vh] overflow-y-auto w-full custom-scrollbar">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold">Saved Orders</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+      <div className="p-6 pt-4 md:pt-6 max-h-[80vh] overflow-y-auto w-full scrollbar-hide">
+        <h2 className="text-2xl font-semibold mb-6">Saved Orders</h2>
         
         <AnimatePresence mode="wait">
           {savedOrders.length === 0 ? (

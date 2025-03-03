@@ -36,4 +36,20 @@
   .custom-scrollbar:not(:hover)::-webkit-scrollbar-thumb {
     background-color: rgba(0, 0, 0, 0.2); /* Slightly visible when not hovering */
   }
+
+  /* Completely hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    /* For Firefox */
+    scrollbar-width: none;
+    /* For IE/Edge */
+    -ms-overflow-style: none;
+  }
+
+  /* For Webkit browsers (Chrome, Safari) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
 }

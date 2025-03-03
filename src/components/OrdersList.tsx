@@ -30,25 +30,19 @@ export const OrdersList: React.FC<OrdersListProps> = ({
   onUpdateOrder
 }) => {
   const navigate = useNavigate();
-  const [deletingOrderId, setDeletingOrderId] = React.useState<string | null>(null);
+  const [deletingIndex, setDeletingIndex] = React.useState<number | null>(null);
   const [showDeleteAllConfirmation, setShowDeleteAllConfirmation] = React.useState(false);
   const [isDeletingAll, setIsDeletingAll] = React.useState(false);
   const [updatingOrder, setUpdatingOrder] = React.useState<number | null>(null);
-  const [timeDropdownIndex, setTimeDropdownIndex] = React.useState<string | null>(null);
+  const [timeDropdownIndex, setTimeDropdownIndex] = React.useState<number | null>(null);
 
   // Sort orders by time
   const sortedOrders = React.useMemo(() => {
     return sortOrdersByTime(orders);
   }, [orders]);
 
-  // Find the original index of an order in the unsorted array
-  const findOriginalIndex = (orderId: string): number => {
-    return orders.findIndex(order => order.id === orderId);
-  };
-
-  const handleDelete = (order: Order) => {
-    if (!order.id) return;
-    setDeletingOrderId(order.id);
+  const handleDelete = (index: number) => {
+    setDeletingIndex(index);
     // Actual deletion happens after animation
   };
 
@@ -59,46 +53,36 @@ export const OrdersList: React.FC<OrdersListProps> = ({
       
       // Delete orders one by one to trigger animations
       for (let i = orders.length - 1; i >= 0; i--) {
-        if (orders[i].id) {
-          setDeletingOrderId(orders[i].id || null);
-          await new Promise(resolve => setTimeout(resolve, 300)); // Wait for animation
-          await onDeleteOrder(i);
-        }
+        setDeletingIndex(i);
+        await new Promise(resolve => setTimeout(resolve, 300)); // Wait for animation
+        await onDeleteOrder(i);
       }
     } catch (error) {
       console.error('Error deleting all orders:', error);
     } finally {
-      setDeletingOrderId(null);
+      setDeletingIndex(null);
       setIsDeletingAll(false);
     }
   };
 
-  const handleTimeChange = async (order: Order, newTime: string) => {
-    if (!order.id) return;
-    const originalIndex = findOriginalIndex(order.id);
-    if (originalIndex === -1) return;
-    
+  const handleTimeChange = async (index: number, newTime: string) => {
     try {
-      setUpdatingOrder(originalIndex);
+      setUpdatingOrder(index);
       const updatedOrder = {
-        ...order,
+        ...sortedOrders[index],
         time: newTime
       };
-      await onUpdateOrder(originalIndex, updatedOrder);
+      await onUpdateOrder(index, updatedOrder);
     } finally {
       setUpdatingOrder(null);
       setTimeDropdownIndex(null);
     }
   };
 
-  const handleUpdateProduct = async (order: Order) => {
-    if (!order.id) return;
-    const originalIndex = findOriginalIndex(order.id);
-    if (originalIndex === -1) return;
-    
+  const handleUpdateProduct = async (orderIndex: number) => {
     try {
-      setUpdatingOrder(originalIndex);
-      onEditOrder(originalIndex);
+      setUpdatingOrder(orderIndex);
+      onEditOrder(orderIndex);
     } finally {
       setUpdatingOrder(null);
     }
@@ -141,43 +125,38 @@ export const OrdersList: React.FC<OrdersListProps> = ({
         </div>
       )}
 
-      {sortedOrders.map((order) => (
+      {sortedOrders.map((order, index) => (
         <FadeTransition
-          key={order.id || `temp-${order.destination}-${order.time}`}
-          in={deletingOrderId !== order.id}
+          key={index}
+          in={deletingIndex !== index}
           onExited={() => {
-            if (order.id) {
-              const originalIndex = findOriginalIndex(order.id);
-              if (originalIndex !== -1) {
-                onDeleteOrder(originalIndex);
-              }
-            }
-            setDeletingOrderId(null);
+            onDeleteOrder(index);
+            setDeletingIndex(null);
           }}
         >
           <div className={`bg-white p-6 rounded-lg shadow-sm transition-all duration-300 ${
-            deletingOrderId === order.id ? 'opacity-50' : ''
+            deletingIndex === index ? 'opacity-50' : ''
           }`}>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <div>
                 <h3 className="text-lg font-semibold mb-1">
                   {order.destination} - 
                   <button
-                    onClick={() => order.id && setTimeDropdownIndex(order.id)}
+                    onClick={() => setTimeDropdownIndex(index)}
                     className="inline-flex items-center gap-1 hover:text-blue-600 focus:outline-none"
                   >
                     <Clock className="w-4 h-4" />
                     {order.time}
                   </button>
                 </h3>
-                {order.id && timeDropdownIndex === order.id && (
+                {timeDropdownIndex === index && (
                   <div className="relative">
                     <div className="absolute z-10 mt-1 w-36 bg-white border border-gray-200 rounded-md shadow-lg">
                       <div className="max-h-48 overflow-y-auto py-1">
                         {TIME_SLOTS.map((time) => (
                           <button
                             key={time}
-                            onClick={() => handleTimeChange(order, time)}
+                            onClick={() => handleTimeChange(index, time)}
                             className={`w-full px-4 py-2 text-left hover:bg-gray-100 ${
                               time === order.time ? 'bg-gray-50 font-medium' : ''
                             }`}
@@ -199,7 +178,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleUpdateProduct(order)}
+                  onClick={() => onEditOrder(index)}
                   className="flex items-center space-x-2 flex-1 sm:flex-initial justify-center"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -208,7 +187,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                 <Button
                   variant="danger"
                   size="sm"
-                  onClick={() => handleDelete(order)}
+                  onClick={() => handleDelete(index)}
                   className="flex items-center space-x-2 flex-1 sm:flex-initial justify-center"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -219,7 +198,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
             <OrderTable 
               order={order} 
               productData={productData}
-              onUpdateProduct={() => handleUpdateProduct(order)}
+              onUpdateProduct={() => handleUpdateProduct(index)}
             />
           </div>
         </FadeTransition>
