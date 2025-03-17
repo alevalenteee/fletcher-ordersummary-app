@@ -19,12 +19,12 @@ export async function analyzePDFContent(
     
     Required format:
     {
-      "destination": "string (one of: ARNDELL, BANYO, SALISBURY, DERRIMUT, MOONAH, JANDAKOT, GEPPS CROSS, BARON, SHEPPARTON, EE-FIT)",
+      "destination": "string (one of: ARNDELL, BANYO, SALISBURY, DERRIMUT, MOONAH, JANDAKOT, GEPPS CROSS, BARON, SHEPPARTON, EE-FIT, CANBERRA)",
       "manifestNumber": "string (the delivery manifest number from the document header)",
       "time": "00:00",
       "products": [
         {
-          "productCode": "string (can start with '20' or '40')",
+          "productCode": "string (can start with '20' or '40' or '10')",
           "packsOrdered": "string (must be a valid number)",
           "description": "string (describe the product if code is not recognized)"
         }
@@ -34,16 +34,17 @@ export async function analyzePDFContent(
     Strict Requirements:
     1. Response MUST be valid JSON
     2. Destination MUST exactly match one of the allowed values (case-sensitive)
-    3. IMPORTANT: Extract the manifest/delivery number from the document header. This is typically labeled as "Delivery Number", "Manifest #", or similar
-    4. Look for product codes that start with either '20' or '40'
-    5. Pack quantities MUST be valid numbers
-    6. Products array MUST NOT be empty
-    7. Each product MUST have both productCode and packsOrdered
-    8. Look for product codes and quantities in the delivery details or line items
-    9. Time will always be "00:00" as it's not required
-    10. Extract ALL product codes and quantities that match the format
-    11. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
-    12. Look for details like:
+    3. IMPORTANT: If you see "CANBERRA", "HUME", or "ACT" in the delivery address, use "CANBERRA" as the destination
+    4. IMPORTANT: Extract the manifest/delivery number from the document header. This is typically labeled as "Delivery Number", "Manifest #", or similar
+    5. Look for product codes that start with either '20' or '40' or '10'
+    6. Pack quantities MUST be valid numbers
+    7. Products array MUST NOT be empty
+    8. Each product MUST have both productCode and packsOrdered
+    9. Look for product codes and quantities in the delivery details or line items
+    10. Time will always be "00:00" as it's not required
+    11. Extract ALL product codes and quantities that match the format
+    12. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
+    13. Look for details like:
         - Product type (e.g., insulation, batts, rolls)
         - Dimensions or specifications
         - Any other identifying characteristics
@@ -105,11 +106,15 @@ export async function analyzePDFContent(
         'JANDAKOT', 'GEPPS CROSS', 'BARON', 'SHEPPARTON', 'EE-FIT', 'CANBERRA'
       ];
 
-      if (!validDestinations.includes(parsedOrder.destination.toUpperCase())) {
+      // Check if the destination contains CANBERRA, HUME, or ACT and normalize to CANBERRA
+      const upperDestination = parsedOrder.destination.toUpperCase();
+      if (upperDestination.includes('CANBERRA') || upperDestination.includes('HUME') || upperDestination.includes('ACT')) {
+        parsedOrder.destination = 'CANBERRA';
+      } else if (!validDestinations.includes(upperDestination)) {
         // Find closest match
         const closest = validDestinations.reduce((prev, curr) => {
-          const prevDiff = levenshteinDistance(parsedOrder.destination.toUpperCase(), prev);
-          const currDiff = levenshteinDistance(parsedOrder.destination.toUpperCase(), curr);
+          const prevDiff = levenshteinDistance(upperDestination, prev);
+          const currDiff = levenshteinDistance(upperDestination, curr);
           return currDiff < prevDiff ? curr : prev;
         });
         throw new Error(`Invalid destination. Did you mean "${closest}"?`);
@@ -120,7 +125,7 @@ export async function analyzePDFContent(
         if (!product.productCode || !product.packsOrdered) return false;
 
         const code = product.productCode.trim();
-        const isValidFormat = code.startsWith('20') || code.startsWith('40');
+        const isValidFormat = code.startsWith('20') || code.startsWith('40') || code.startsWith('10');
         
         if (!isValidFormat) {
           console.warn(`Skipping product with invalid code format: ${code}`);
