@@ -7,7 +7,6 @@ import { ConfirmationModal } from './ui/ConfirmationModal';
 import { FadeTransition } from './transitions/FadeTransition';
 import { LoadingModal } from './ui/LoadingModal';
 import { Printer, Edit2, Trash2, Clock, Trash, Download } from 'lucide-react';
-import { sortOrdersByTime } from '@/utils/time';
 import { downloadExcel } from '@/utils/export';
 
 interface OrdersListProps {
