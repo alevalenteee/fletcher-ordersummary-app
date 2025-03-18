@@ -238,7 +238,12 @@ export const OrderForm: React.FC<OrderFormProps> = ({
         </button>
         <button
           onClick={handleSubmit}
-          disabled={!products.length || (!destination && !customDestination) || (!time && !customTime)}
+          disabled={
+            !products.length || 
+            (!destination && !customDestination) || 
+            (!time && !customTime) ||
+            (productCode.trim() !== '' || packs.trim() !== '')
+          }
           className="px-4 py-3 sm:py-2 bg-black text-white rounded-md disabled:bg-gray-300 text-lg sm:text-base w-full sm:w-auto"
         >
           {initialOrder ? 'Update Order' : 'Submit Order'}

@@ -38,11 +38,18 @@ export const OrdersList: React.FC<OrdersListProps> = ({
 
   // Sort orders by time
   const sortedOrders = React.useMemo(() => {
-    return sortOrdersByTime(orders);
+    // Create an array of orders with their original indices
+    const ordersWithIndices = orders.map((order, index) => ({ order, originalIndex: index }));
+    // Sort by time but keep track of original indices
+    return ordersWithIndices.sort((a, b) => {
+      const timeA = a.order.time;
+      const timeB = b.order.time;
+      return timeA.localeCompare(timeB);
+    });
   }, [orders]);
 
-  const handleDelete = (index: number) => {
-    setDeletingIndex(index);
+  const handleDelete = (sortedIndex: number) => {
+    setDeletingIndex(sortedIndex);
     // Actual deletion happens after animation
   };
 
@@ -65,27 +72,37 @@ export const OrdersList: React.FC<OrdersListProps> = ({
     }
   };
 
-  const handleTimeChange = async (index: number, newTime: string) => {
+  const handleTimeChange = async (sortedIndex: number, newTime: string) => {
     try {
-      setUpdatingOrder(index);
+      setUpdatingOrder(sortedIndex);
+      const originalIndex = sortedOrders[sortedIndex].originalIndex;
       const updatedOrder = {
-        ...sortedOrders[index],
+        ...sortedOrders[sortedIndex].order,
         time: newTime
       };
-      await onUpdateOrder(index, updatedOrder);
+      await onUpdateOrder(originalIndex, updatedOrder);
     } finally {
       setUpdatingOrder(null);
       setTimeDropdownIndex(null);
     }
   };
 
-  const handleUpdateProduct = async (orderIndex: number) => {
+  const handleUpdateProduct = async (sortedIndex: number) => {
     try {
-      setUpdatingOrder(orderIndex);
-      onEditOrder(orderIndex);
+      setUpdatingOrder(sortedIndex);
+      const originalIndex = sortedOrders[sortedIndex].originalIndex;
+      onEditOrder(originalIndex);
+      // Scroll to the top of the page smoothly
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setUpdatingOrder(null);
     }
+  };
+
+  const handleEdit = (originalIndex: number) => {
+    onEditOrder(originalIndex);
+    // Scroll to the top of the page smoothly
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -108,7 +125,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
               <span>Delete All</span>
             </Button>
             <Button
-              onClick={() => downloadExcel(sortedOrders, productData)}
+              onClick={() => downloadExcel(sortedOrders.map(o => o.order), productData)}
               className="flex items-center space-x-2 w-full sm:w-auto justify-center"
             >
               <Download className="w-5 h-5" />
@@ -125,38 +142,38 @@ export const OrdersList: React.FC<OrdersListProps> = ({
         </div>
       )}
 
-      {sortedOrders.map((order, index) => (
+      {sortedOrders.map(({ order, originalIndex }, sortedIndex) => (
         <FadeTransition
-          key={index}
-          in={deletingIndex !== index}
+          key={sortedIndex}
+          in={deletingIndex !== sortedIndex}
           onExited={() => {
-            onDeleteOrder(index);
+            onDeleteOrder(originalIndex);
             setDeletingIndex(null);
           }}
         >
           <div className={`bg-white p-6 rounded-lg shadow-sm transition-all duration-300 ${
-            deletingIndex === index ? 'opacity-50' : ''
+            deletingIndex === sortedIndex ? 'opacity-50' : ''
           }`}>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <div>
                 <h3 className="text-lg font-semibold mb-1">
                   {order.destination} - 
                   <button
-                    onClick={() => setTimeDropdownIndex(index)}
+                    onClick={() => setTimeDropdownIndex(sortedIndex)}
                     className="inline-flex items-center gap-1 hover:text-blue-600 focus:outline-none"
                   >
                     <Clock className="w-4 h-4" />
                     {order.time}
                   </button>
                 </h3>
-                {timeDropdownIndex === index && (
+                {timeDropdownIndex === sortedIndex && (
                   <div className="relative">
                     <div className="absolute z-10 mt-1 w-36 bg-white border border-gray-200 rounded-md shadow-lg">
                       <div className="max-h-48 overflow-y-auto py-1">
                         {TIME_SLOTS.map((time) => (
                           <button
                             key={time}
-                            onClick={() => handleTimeChange(index, time)}
+                            onClick={() => handleTimeChange(sortedIndex, time)}
                             className={`w-full px-4 py-2 text-left hover:bg-gray-100 ${
                               time === order.time ? 'bg-gray-50 font-medium' : ''
                             }`}
@@ -178,7 +195,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onEditOrder(index)}
+                  onClick={() => handleEdit(originalIndex)}
                   className="flex items-center space-x-2 flex-1 sm:flex-initial justify-center"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -187,7 +204,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                 <Button
                   variant="danger"
                   size="sm"
-                  onClick={() => handleDelete(index)}
+                  onClick={() => handleDelete(sortedIndex)}
                   className="flex items-center space-x-2 flex-1 sm:flex-initial justify-center"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -198,7 +215,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
             <OrderTable 
               order={order} 
               productData={productData}
-              onUpdateProduct={() => handleUpdateProduct(index)}
+              onUpdateProduct={() => handleUpdateProduct(sortedIndex)}
             />
           </div>
         </FadeTransition>
