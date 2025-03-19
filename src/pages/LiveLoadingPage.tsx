@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Order, OrderProduct, Product } from '@/types';
 import { getProductDetails, convertToOutput, getOutputUnit } from '@/utils';
 import { ChevronLeft, Plus, Minus, Check, Truck, Save, X } from 'lucide-react';
@@ -24,7 +24,6 @@ interface ExtendedOrder extends Omit<Order, 'products'> {
 
 export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productData }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { currentProfile } = useProfiles();
   const [orders, setOrders] = React.useState<ExtendedOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = React.useState<ExtendedOrder | null>(null);
@@ -47,11 +46,6 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
     amount: null,
     type: 'increment'
   });
-  const lastStateRef = React.useRef<{
-    orderId?: string;
-    uniqueId?: string;
-    sessionId?: string;
-  }>({});
   const MAX_RETRIES = 3;
 
   // Generate unique IDs for products when orders are loaded
@@ -183,7 +177,8 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
               });
               
               // Keep the first one (with most progress or most recent), delete the rest
-              const [keepSession, ...sessionsToDelete] = sortedSessions;
+              const sessionToKeep = sortedSessions[0];
+              const sessionsToDelete = sortedSessions.slice(1);
               
               sessionsToDelete.forEach(session => {
                 // NEVER delete the saved session ID
