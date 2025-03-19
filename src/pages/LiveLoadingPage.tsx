@@ -178,7 +178,7 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
               
               // Keep the first one (with most progress or most recent), delete the rest
               const sessionToKeep = sortedSessions[0];
-              const sessionsToDelete = sortedSessions.slice(1);
+              const sessionsToDelete = sortedSessions.filter(session => session !== sessionToKeep);
               
               sessionsToDelete.forEach(session => {
                 // NEVER delete the saved session ID
