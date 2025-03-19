@@ -50,6 +50,7 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
   const lastStateRef = React.useRef<{
     orderId?: string;
     uniqueId?: string;
+    sessionId?: string;
   }>({});
   const MAX_RETRIES = 3;
 
@@ -98,19 +99,124 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
     fetchOrders();
   }, [currentProfile]);
 
-  // Save current state
+  // Clean up stale load sessions
   React.useEffect(() => {
-    try {
-      const state = {
-        orderId: selectedOrder?.id,
-        uniqueId: selectedProduct?.uniqueId
-      };
-      localStorage.setItem('liveLoadingState', JSON.stringify(state));
-      lastStateRef.current = state;
-    } catch (error) {
-      console.error('Error saving live loading state:', error);
+    const cleanupStaleSessions = async () => {
+      try {
+        // Get the saved session ID before cleanup
+        const savedState = localStorage.getItem('liveLoadingState');
+        let savedSessionId = '';
+        if (savedState) {
+          const { sessionId } = JSON.parse(savedState);
+          savedSessionId = sessionId || '';
+        }
+        
+        // Get all load sessions
+        const { data: sessions, error: fetchError } = await supabase
+          .from('load_sessions')
+          .select('*');
+          
+        if (fetchError) throw fetchError;
+        
+        if (sessions && sessions.length > 0) {
+          // Define a type for our session objects
+          interface SessionData {
+            id: string;
+            destination: string;
+            time: string;
+            user_id?: string;
+            progress: Record<string, any>;
+            created_at: string;
+          }
+          
+          // Get all valid order destination and time combinations
+          const validOrderKeys = orders.map(order => `${order.destination}_${order.time}`);
+          
+          // Identify duplicate sessions (same destination+time+user_id)
+          const sessionsByKey: Record<string, SessionData[]> = {};
+          
+          sessions.forEach(session => {
+            const key = `${session.destination}_${session.time}_${session.user_id || 'none'}`;
+            if (!sessionsByKey[key]) {
+              sessionsByKey[key] = [];
+            }
+            sessionsByKey[key].push(session as SessionData);
+          });
+          
+          // Sessions to delete: stale ones + duplicates (keeping only the most recent with progress)
+          const toDelete: string[] = [];
+          
+          // First find stale sessions
+          const staleSessions = sessions.filter(session => 
+            // Check for no matching destination+time
+            !validOrderKeys.includes(`${session.destination}_${session.time}`)
+          );
+          
+          staleSessions.forEach(session => {
+            // NEVER delete the saved session ID
+            if (session.id !== savedSessionId) {
+              toDelete.push(session.id);
+            }
+          });
+          
+          // Then find duplicates
+          Object.values(sessionsByKey).forEach(groupedSessions => {
+            if (groupedSessions.length > 1) {
+              // Sort sessions by:
+              // 1. If it's the saved session ID
+              // 2. Sessions with progress first
+              // 3. Most recent created_at
+              const sortedSessions = [...groupedSessions].sort((a, b) => {
+                // Always prioritize the saved session ID
+                if (a.id === savedSessionId) return -1;
+                if (b.id === savedSessionId) return 1;
+                
+                const aProgress = Object.keys(a.progress || {}).length;
+                const bProgress = Object.keys(b.progress || {}).length;
+                
+                // Then sort by progress (sessions with progress come first)
+                if (aProgress > 0 && bProgress === 0) return -1;
+                if (aProgress === 0 && bProgress > 0) return 1;
+                
+                // If both have progress or neither has progress, sort by created_at
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              });
+              
+              // Keep the first one (with most progress or most recent), delete the rest
+              const [keepSession, ...sessionsToDelete] = sortedSessions;
+              
+              sessionsToDelete.forEach(session => {
+                // NEVER delete the saved session ID
+                if (session.id !== savedSessionId) {
+                  toDelete.push(session.id);
+                }
+              });
+            }
+          });
+          
+          // Delete all identified sessions
+          if (toDelete.length > 0) {
+            for (const sessionId of toDelete) {
+              await supabase
+                .from('load_sessions')
+                .delete()
+                .eq('id', sessionId);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error cleaning up sessions:', err);
+      }
+    };
+    
+    // Run cleanup immediately on mount
+    cleanupStaleSessions();
+    
+    // And again whenever orders change
+    if (orders.length > 0 && !loading) {
+      cleanupStaleSessions();
     }
-  }, [selectedOrder, selectedProduct]);
+  }, [orders, loading]);
 
   // Restore state on mount
   React.useEffect(() => {
@@ -119,8 +225,46 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
         const savedState = localStorage.getItem('liveLoadingState');
         if (!savedState) return;
         
-        const { orderId, uniqueId } = JSON.parse(savedState);
+        const { orderId, uniqueId, sessionId: savedSessionId } = JSON.parse(savedState);
         
+        // If we have a saved sessionId, use it to directly look up the session
+        if (savedSessionId) {
+          const { data, error } = await supabase
+            .from('load_sessions')
+            .select('*')
+            .eq('id', savedSessionId)
+            .maybeSingle();
+            
+          if (data && !error) {
+            // Set the session ID so it will be used when the order is selected
+            setSessionId(savedSessionId);
+            setLoadingProgress(data.progress || {});
+            
+            // Verify the order exists in memory or database
+            if (orderId) {
+              // First check in memory orders 
+              const orderInMemory = orders.find(o => o.id === orderId);
+              
+              if (orderInMemory) {
+                // Set the order only after we've verified the session
+                setSelectedOrder(orderInMemory);
+                
+                // Restore product selection
+                if (uniqueId) {
+                  const product = orderInMemory.products.find(p => p.uniqueId === uniqueId);
+                  if (product) {
+                    setSelectedProduct(product);
+                  }
+                }
+              }
+            }
+            
+            // Return early, we've restored the state
+            return;
+          }
+        }
+        
+        // If session ID lookup failed or wasn't available, try order-based restoration
         // Verify the order exists in the database
         if (orderId) {
           // First check in memory orders 
@@ -135,7 +279,6 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
               .maybeSingle();
               
             if (error || !data) {
-              console.log('Order not found in database, clearing saved state');
               localStorage.removeItem('liveLoadingState');
               return;
             }
@@ -143,6 +286,39 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
           
           // Now proceed with restoration if order exists
           if (orderInMemory) {
+            // Before setting the order, try to find any existing sessions for this order
+            if (!savedSessionId) {
+              const { data: existingSessions, error } = await supabase
+                .from('load_sessions')
+                .select('*')
+                .eq('destination', orderInMemory.destination)
+                .eq('time', orderInMemory.time);
+                
+              if (!error && existingSessions && existingSessions.length > 0) {
+                // Find a session with progress
+                const sessionWithProgress = existingSessions.find(
+                  session => session.progress && Object.keys(session.progress).length > 0
+                );
+                
+                if (sessionWithProgress) {
+                  setSessionId(sessionWithProgress.id);
+                  setLoadingProgress(sessionWithProgress.progress || {});
+                  
+                  // Save this session ID to localStorage
+                  try {
+                    const newState = {
+                      orderId: orderInMemory.id,
+                      uniqueId: uniqueId,
+                      sessionId: sessionWithProgress.id
+                    };
+                    localStorage.setItem('liveLoadingState', JSON.stringify(newState));
+                  } catch (e) {
+                    console.error('Error updating localStorage:', e);
+                  }
+                }
+              }
+            }
+            
             setSelectedOrder(orderInMemory);
             
             // Restore product selection
@@ -164,74 +340,129 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
     restoreState();
   }, [orders]);
 
-  // Clear state when navigating away
-  React.useEffect(() => {
-    return () => {
-      // Always clear the local storage state when unmounting the component
-      localStorage.removeItem('liveLoadingState');
-      
-      // Clear any timeout
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      
-      // Reset all state
-      setSelectedOrder(null);
-      setSelectedProduct(null);
-      setLoadingProgress({});
-    };
-  }, []);
-
-  // Handle selected order from navigation
-  React.useEffect(() => {
-    const state = location.state as { selectedOrder?: Order };
-    if (state?.selectedOrder) {
-      // Add uniqueIds to the products of the selected order
-      const orderWithUniqueIds = {
-        ...state.selectedOrder,
-        products: (state.selectedOrder.products || []).map((product: OrderProduct, index: number) => ({
-          ...product,
-          uniqueId: `${state.selectedOrder?.id || 'temp'}_${product.productCode}_${index}`
-        }))
-      } as ExtendedOrder;
-      
-      setSelectedOrder(orderWithUniqueIds);
-      // Clean up the state so refreshing doesn't reselect
-      navigate(location.pathname, { replace: true });
-    }
-  }, [location.state]);
-
   // Initialize or load existing session
   React.useEffect(() => {
     if (selectedOrder) {
+      // Helper function to clean up duplicate sessions
+      const cleanupDuplicateSessions = async (sessions: any[], keepSessionId: string) => {
+        try {
+          for (const session of sessions) {
+            if (session.id !== keepSessionId) {
+              await supabase
+                .from('load_sessions')
+                .delete()
+                .eq('id', session.id);
+            }
+          }
+        } catch (err) {
+          console.error('Error cleaning up duplicate sessions:', err);
+        }
+      };
+      
       const initSession = async () => {
         try {
-          const { data: existingSessions, error: fetchError } = await supabase
-            .from('load_sessions')
-            .select('*')
-            .eq('destination', selectedOrder.destination)
-            .eq('time', selectedOrder.time);
-
-          if (fetchError) throw fetchError;
-
-          if (existingSessions && existingSessions.length > 0) {
-            const session = existingSessions[0];
-            setLoadingProgress(session.progress);
-            setSessionId(session.id);
-          } else {
-            const { data: newSession, error: insertError } = await supabase
+          // Protect against concurrent execution
+          let isSessionInitialized = false;
+          
+          // If we already have a sessionId from localStorage, use it directly
+          if (sessionId) {
+            // Verify it still exists
+            const { data, error } = await supabase
               .from('load_sessions')
-              .insert({
-                destination: selectedOrder.destination,
-                time: selectedOrder.time,
-                progress: {}
-              })
-              .select()
-              .single();
+              .select('*')
+              .eq('id', sessionId)
+              .maybeSingle();
+              
+            if (data && !error) {
+              // Make sure we set the loading progress from the retrieved data
+              setLoadingProgress(data.progress || {});
+              isSessionInitialized = true; // Mark as initialized
+            } else {
+              // Clear sessionId since it's invalid
+              setSessionId('');
+            }
+          }
+          
+          // Only proceed if we haven't initialized the session already
+          if (!isSessionInitialized) {
+            // If we don't have a valid sessionId, look for existing sessions
+            
+            // Add user id filter if available
+            let query = supabase
+              .from('load_sessions')
+              .select('*')
+              .eq('destination', selectedOrder.destination)
+              .eq('time', selectedOrder.time);
+              
+            // Filter by current profile if available
+            if (currentProfile?.id) {
+              query = query.eq('user_id', currentProfile.id);
+            }
+            
+            // Order by created_at descending to get the most recent sessions first
+            query = query.order('created_at', { ascending: false });
+            
+            const { data: existingSessions, error: fetchError } = await query;
 
-            if (insertError) throw insertError;
-            if (newSession) {
-              setSessionId(newSession.id);
+            if (fetchError) throw fetchError;
+
+            if (existingSessions && existingSessions.length > 0) {
+              // First try to find the most recent session with progress
+              const sessionWithProgress = existingSessions.find(
+                session => session.progress && Object.keys(session.progress).length > 0
+              );
+              
+              // Use the session with progress, or fall back to the most recent session
+              const session = sessionWithProgress || existingSessions[0];
+              
+              setLoadingProgress(session.progress || {});
+              setSessionId(session.id);
+              
+              // Update localStorage with the current session ID
+              try {
+                const state = {
+                  orderId: selectedOrder.id,
+                  uniqueId: selectedProduct?.uniqueId,
+                  sessionId: session.id
+                };
+                localStorage.setItem('liveLoadingState', JSON.stringify(state));
+              } catch (e) {
+                console.error('Error updating localStorage:', e);
+              }
+              
+              // If we found multiple sessions but are only using one, clean up the others
+              if (existingSessions.length > 1) {
+                cleanupDuplicateSessions(existingSessions, session.id);
+              }
+            } else {
+              const { data: newSession, error: insertError } = await supabase
+                .from('load_sessions')
+                .insert({
+                  destination: selectedOrder.destination,
+                  time: selectedOrder.time,
+                  progress: {},
+                  user_id: currentProfile?.id
+                })
+                .select()
+                .single();
+
+              if (insertError) throw insertError;
+              if (newSession) {
+                setSessionId(newSession.id);
+                setLoadingProgress({});
+                
+                // Update localStorage with the new session ID
+                try {
+                  const state = {
+                    orderId: selectedOrder.id,
+                    uniqueId: selectedProduct?.uniqueId,
+                    sessionId: newSession.id
+                  };
+                  localStorage.setItem('liveLoadingState', JSON.stringify(state));
+                } catch (e) {
+                  console.error('Error updating localStorage:', e);
+                }
+              }
             }
           }
         } catch (err) {
@@ -239,11 +470,11 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
           setError('Failed to initialize loading session');
         }
       };
-
+      
       initSession();
     }
   }, [selectedOrder]);
-
+  
   // Save progress to session with debounce
   React.useEffect(() => {
     if (sessionId && Object.keys(loadingProgress).length > 0) {
@@ -255,13 +486,47 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
       const saveProgress = async () => {
         setSaving(true);
         try {
-          const { error: updateError } = await supabase
+          // Deep copy of loading progress to ensure we're saving exactly what's in state
+          const progressToSave = JSON.parse(JSON.stringify(loadingProgress));
+          
+          // First verify the session still exists
+          const { data: checkSession, error: checkError } = await supabase
             .from('load_sessions')
-            .update({ progress: loadingProgress })
-            .eq('id', sessionId);
+            .select('id')
+            .eq('id', sessionId)
+            .maybeSingle();
+            
+          if (checkError || !checkSession) {
+            throw new Error('Session does not exist');
+          }
+          
+          const { data, error: updateError } = await supabase
+            .from('load_sessions')
+            .update({ 
+              progress: progressToSave,
+              // Ensure user_id is set to the current user if available
+              user_id: currentProfile?.id
+            })
+            .eq('id', sessionId)
+            .select()
+            .single();
 
           if (updateError) {
             throw updateError;
+          }
+          
+          // After successful save, make sure localStorage has the latest information
+          if (data) {
+            try {
+              const state = {
+                orderId: selectedOrder?.id,
+                uniqueId: selectedProduct?.uniqueId,
+                sessionId: data.id
+              };
+              localStorage.setItem('liveLoadingState', JSON.stringify(state));
+            } catch (e) {
+              console.error('Error updating localStorage after save:', e);
+            }
           }
           
           setRetryCount(0);
@@ -279,6 +544,27 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
           } else {
             setError('Failed to save progress after multiple attempts');
             setLastSaved(false);
+            
+            // On final failure, try to get a fresh session
+            // Check if our session still exists
+            const checkSession = async () => {
+              try {
+                const { data, error } = await supabase
+                  .from('load_sessions')
+                  .select('*')
+                  .eq('id', sessionId)
+                  .maybeSingle();
+                  
+                if (error || !data) {
+                  setSessionId('');
+                  localStorage.removeItem('liveLoadingState');
+                }
+              } catch (e) {
+                console.error('Error checking session validity:', e);
+              }
+            };
+            
+            checkSession();
           }
         } finally {
           setSaving(false);
@@ -296,53 +582,6 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
       }
     };
   }, [loadingProgress, sessionId, retryCount]);
-
-  // Clean up stale load sessions
-  React.useEffect(() => {
-    const cleanupStaleSessions = async () => {
-      try {
-        // Get all load sessions
-        const { data: sessions, error: fetchError } = await supabase
-          .from('load_sessions')
-          .select('*');
-          
-        if (fetchError) throw fetchError;
-        
-        if (sessions && sessions.length > 0) {
-          // Get all valid order destination and time combinations
-          const validOrderKeys = orders.map(order => `${order.destination}_${order.time}`);
-          
-          // Find sessions that don't match any current orders
-          const staleSessions = sessions.filter(session => 
-            // Check for no matching destination+time
-            !validOrderKeys.includes(`${session.destination}_${session.time}`)
-          );
-          
-          // Delete stale sessions
-          if (staleSessions.length > 0) {
-            console.log(`Cleaning up ${staleSessions.length} stale load sessions`);
-            
-            for (const session of staleSessions) {
-              await supabase
-                .from('load_sessions')
-                .delete()
-                .eq('id', session.id);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error cleaning up stale sessions:', err);
-      }
-    };
-    
-    // Run cleanup immediately on mount
-    cleanupStaleSessions();
-    
-    // And again whenever orders change
-    if (orders.length > 0 && !loading) {
-      cleanupStaleSessions();
-    }
-  }, [orders, loading]);
 
   const getConvertedQuantity = (product: ExtendedOrderProduct): { current: number, target: number } => {
     const packsOrdered = parseInt(product.packsOrdered);
@@ -423,24 +662,26 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
 
     const targetPacks = parseInt(selectedProduct.packsOrdered);
     const uniqueId = selectedProduct.uniqueId;
-
+    
     setLoadingProgress(prev => {
       const currentPacks = prev[uniqueId] || 0;
       const newPacks = Math.max(0, (currentPacks as number) + packIncrement);
       
       // Auto mark as complete when reaching or exceeding target
       if (newPacks >= targetPacks && !prev[`${uniqueId}_complete`]) {
-        return {
+        const newState = {
           ...prev,
           [uniqueId]: newPacks,
           [`${uniqueId}_complete`]: true
         };
+        return newState;
       }
       
-      return {
+      const newState = {
         ...prev,
         [uniqueId]: newPacks
       };
+      return newState;
     });
   };
 
@@ -448,11 +689,14 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
     if (!selectedProduct) return;
     const uniqueId = selectedProduct.uniqueId;
     
-    setLoadingProgress(prev => ({
-      ...prev,
-      [uniqueId]: 0,
-      [`${uniqueId}_complete`]: false
-    }));
+    setLoadingProgress(prev => {
+      const newState = {
+        ...prev,
+        [uniqueId]: 0,
+        [`${uniqueId}_complete`]: false
+      };
+      return newState;
+    });
   };
 
   const toggleComplete = () => {
@@ -461,10 +705,13 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
     
     const isCurrentlyComplete = loadingProgress[`${uniqueId}_complete`];
     
-    setLoadingProgress(prev => ({
-      ...prev,
-      [`${uniqueId}_complete`]: !isCurrentlyComplete
-    }));
+    setLoadingProgress(prev => {
+      const newState = {
+        ...prev,
+        [`${uniqueId}_complete`]: !isCurrentlyComplete
+      };
+      return newState;
+    });
   };
 
   const getProgressStatus = (product: ExtendedOrderProduct) => {

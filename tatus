@@ -1,5 +1,0 @@
-[33mcommit 99b8bd6f49f82d5aaa2e02f68b1324479ba0d82e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
-Author: Alessandro Valente <alex.valente.seda@gmail.com>
-Date:   Fri Feb 28 17:17:25 2025 +1100
-
-    Fix: Display Pallets as Units consistently throughout the application

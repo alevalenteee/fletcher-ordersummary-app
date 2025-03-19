@@ -18,20 +18,27 @@ export function useProfiles() {
     if (profiles.length > 0 && !currentProfile) {
       // Try to get saved profile from localStorage first
       const savedProfileId = localStorage.getItem('currentProfileId');
+      console.log('Checking for saved profile ID:', savedProfileId);
+      
       if (savedProfileId) {
         const savedProfile = profiles.find(p => p.id === savedProfileId);
         if (savedProfile) {
+          console.log('Restoring saved profile:', savedProfile.name, savedProfile.id);
           setCurrentProfile(savedProfile);
           return;
+        } else {
+          console.log('Saved profile ID not found in profiles list');
         }
       }
       
       // Otherwise use the default profile
       const defaultProfile = profiles.find(p => p.is_default);
       if (defaultProfile) {
+        console.log('Using default profile:', defaultProfile.name, defaultProfile.id);
         setCurrentProfile(defaultProfile);
       } else {
         // Or just use the first profile
+        console.log('Using first profile:', profiles[0].name, profiles[0].id);
         setCurrentProfile(profiles[0]);
       }
     }
@@ -40,6 +47,7 @@ export function useProfiles() {
   // Save current profile to localStorage when it changes
   useEffect(() => {
     if (currentProfile) {
+      console.log('Saving current profile to localStorage:', currentProfile.name, currentProfile.id);
       localStorage.setItem('currentProfileId', currentProfile.id);
     }
   }, [currentProfile]);
@@ -47,6 +55,7 @@ export function useProfiles() {
   const fetchProfiles = async () => {
     try {
       setLoading(true);
+      console.log('Fetching profiles...');
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -54,10 +63,12 @@ export function useProfiles() {
 
       if (error) throw error;
       
+      console.log('Profiles fetched:', data?.length || 0);
       setProfiles(data || []);
       
       // If no profiles exist, create a default one
       if (!data || data.length === 0) {
+        console.log('No profiles found, creating default profile');
         await createProfile({
           name: 'Default',
           color: '#3B82F6',
