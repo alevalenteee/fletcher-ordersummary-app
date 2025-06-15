@@ -8,6 +8,7 @@ import { FadeTransition } from './transitions/FadeTransition';
 import { LoadingModal } from './ui/LoadingModal';
 import { Printer, Edit2, Trash2, Clock, Trash, Download } from 'lucide-react';
 import { downloadExcel } from '@/utils/export';
+import { sortOrdersByTime } from '@/utils/time';
 
 interface OrdersListProps {
   orders: Order[];
@@ -37,14 +38,13 @@ export const OrdersList: React.FC<OrdersListProps> = ({
 
   // Sort orders by time
   const sortedOrders = React.useMemo(() => {
-    // Create an array of orders with their original indices
-    const ordersWithIndices = orders.map((order, index) => ({ order, originalIndex: index }));
-    // Sort by time but keep track of original indices
-    return ordersWithIndices.sort((a, b) => {
-      const timeA = a.order.time;
-      const timeB = b.order.time;
-      return timeA.localeCompare(timeB);
-    });
+    // Use the proper time sorting function that handles shift patterns
+    const timeSortedOrders = sortOrdersByTime(orders);
+    // Create an array with their original indices for tracking
+    return timeSortedOrders.map((order) => ({
+      order,
+      originalIndex: orders.findIndex(o => o === order)
+    }));
   }, [orders]);
 
   const handleDelete = (sortedIndex: number) => {
