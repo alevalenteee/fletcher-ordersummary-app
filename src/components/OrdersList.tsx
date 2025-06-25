@@ -6,7 +6,7 @@ import { Button } from './ui/Button';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { FadeTransition } from './transitions/FadeTransition';
 import { LoadingModal } from './ui/LoadingModal';
-import { Printer, Edit2, Trash2, Clock, Trash, Download } from 'lucide-react';
+import { Printer, Edit2, Trash2, Trash, Download } from 'lucide-react';
 import { downloadExcel } from '@/utils/export';
 import { sortOrdersByTime } from '@/utils/time';
 
@@ -15,26 +15,19 @@ interface OrdersListProps {
   productData: Product[];
   onEditOrder: (index: number) => void;
   onDeleteOrder: (index: number) => void;
-  onUpdateOrder: (index: number, order: Order) => void;
 }
-
-const TIME_SLOTS = Array.from({ length: 24 }, (_, i) => 
-  `${String(i).padStart(2, '0')}:00`
-);
 
 export const OrdersList: React.FC<OrdersListProps> = ({
   orders,
   productData,
   onEditOrder,
-  onDeleteOrder,
-  onUpdateOrder
+  onDeleteOrder
 }) => {
   const navigate = useNavigate();
   const [deletingIndex, setDeletingIndex] = React.useState<number | null>(null);
   const [showDeleteAllConfirmation, setShowDeleteAllConfirmation] = React.useState(false);
   const [isDeletingAll, setIsDeletingAll] = React.useState(false);
   const [updatingOrder, setUpdatingOrder] = React.useState<number | null>(null);
-  const [timeDropdownIndex, setTimeDropdownIndex] = React.useState<number | null>(null);
 
   // Sort orders by time
   const sortedOrders = React.useMemo(() => {
@@ -68,21 +61,6 @@ export const OrdersList: React.FC<OrdersListProps> = ({
     } finally {
       setDeletingIndex(null);
       setIsDeletingAll(false);
-    }
-  };
-
-  const handleTimeChange = async (sortedIndex: number, newTime: string) => {
-    try {
-      setUpdatingOrder(sortedIndex);
-      const originalIndex = sortedOrders[sortedIndex].originalIndex;
-      const updatedOrder = {
-        ...sortedOrders[sortedIndex].order,
-        time: newTime
-      };
-      await onUpdateOrder(originalIndex, updatedOrder);
-    } finally {
-      setUpdatingOrder(null);
-      setTimeDropdownIndex(null);
     }
   };
 
