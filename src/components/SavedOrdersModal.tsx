@@ -97,10 +97,18 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
                     <div>
                       <h3 className="text-lg font-medium">{order.destination}</h3>
                       <p className="text-gray-600">{order.time}</p>
-                      {order.manifestNumber && (
-                        <p className="text-sm text-gray-500">
-                          Manifest: {order.manifestNumber}
-                        </p>
+                      {(order.manifestNumber || order.transportCompany) && (
+                        <div className="text-sm text-gray-500">
+                          {order.manifestNumber && (
+                            <span>Manifest: {order.manifestNumber}</span>
+                          )}
+                          {order.manifestNumber && order.transportCompany && (
+                            <span className="mx-1">•</span>
+                          )}
+                          {order.transportCompany && (
+                            <span>Transport: {order.transportCompany}</span>
+                          )}
+                        </div>
                       )}
                     </div>
                     <Button

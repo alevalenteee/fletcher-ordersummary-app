@@ -154,40 +154,22 @@ export const OrdersList: React.FC<OrdersListProps> = ({
             deletingIndex === sortedIndex ? 'opacity-50' : ''
           }`}>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold mb-1">
-                  {order.destination} - 
-                  <button
-                    onClick={() => setTimeDropdownIndex(sortedIndex)}
-                    className="inline-flex items-center gap-1 hover:text-blue-600 focus:outline-none"
-                  >
-                    <Clock className="w-4 h-4" />
-                    {order.time}
-                  </button>
+              <div className="space-y-1 w-full sm:w-auto">
+                <h3 className="text-xl font-medium">
+                  {order.destination} - {order.time}
                 </h3>
-                {timeDropdownIndex === sortedIndex && (
-                  <div className="relative">
-                    <div className="absolute z-10 mt-1 w-36 bg-white border border-gray-200 rounded-md shadow-lg">
-                      <div className="max-h-48 overflow-y-auto py-1">
-                        {TIME_SLOTS.map((time) => (
-                          <button
-                            key={time}
-                            onClick={() => handleTimeChange(sortedIndex, time)}
-                            className={`w-full px-4 py-2 text-left hover:bg-gray-100 ${
-                              time === order.time ? 'bg-gray-50 font-medium' : ''
-                            }`}
-                          >
-                            {time}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                {(order.manifestNumber || order.transportCompany) && (
+                  <div className="text-base text-gray-700 font-medium">
+                    {order.manifestNumber && (
+                      <span>Manifest Number: {order.manifestNumber}</span>
+                    )}
+                    {order.manifestNumber && order.transportCompany && (
+                      <span className="text-gray-500 mx-2">•</span>
+                    )}
+                    {order.transportCompany && (
+                      <span>Transport: {order.transportCompany}</span>
+                    )}
                   </div>
-                )}
-                {order.manifestNumber && (
-                  <p className="text-base text-gray-700 font-medium">
-                    Manifest Number: {order.manifestNumber}
-                  </p>
                 )}
               </div>
               <div className="flex gap-2 w-full sm:w-auto">

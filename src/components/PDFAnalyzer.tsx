@@ -75,11 +75,15 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
               destination: order.destination,
               time: order.time,
               manifestNumber: order.manifestNumber,
+              transportCompany: order.transportCompany,
               productCount: order.products.length
             });
             
             if (order.manifestNumber) {
               console.log('Found manifest number:', order.manifestNumber);
+            }
+            if (order.transportCompany) {
+              console.log('Found transport company:', order.transportCompany);
             }
             analyzedOrders.push(order);
           } else {
@@ -94,10 +98,11 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
 
       if (analyzedOrders.length > 0) {
         // Log orders before submitting
-        console.log('Submitting orders with manifests:', 
+        console.log('Submitting orders with manifests and transport companies:', 
           analyzedOrders.map(o => ({
             destination: o.destination,
-            manifestNumber: o.manifestNumber
+            manifestNumber: o.manifestNumber,
+            transportCompany: o.transportCompany
           }))
         );
         

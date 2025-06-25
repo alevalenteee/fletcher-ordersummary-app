@@ -77,6 +77,7 @@ export const LiveLoadingPage: React.FC<{ productData: Product[] }> = ({ productD
           return {
             ...order,
             manifestNumber: order.manifest_number,
+            transportCompany: order.transport_company,
             products
           };
         });

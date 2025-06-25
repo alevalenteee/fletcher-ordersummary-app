@@ -114,6 +114,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
         destination: finalDestination,
         time: finalTime,
         manifestNumber: initialOrder?.manifestNumber,
+        transportCompany: initialOrder?.transportCompany,
         products
       });
 

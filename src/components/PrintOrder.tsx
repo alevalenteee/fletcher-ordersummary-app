@@ -18,16 +18,24 @@ export const PrintOrder: React.FC<PrintOrderProps> = ({
       <div className="mb-3">
         <h2 className="text-xl font-semibold mb-1">
           {order.destination} - {order.time} 
-          {order.manifestNumber && (
+          {(order.manifestNumber || order.transportCompany) && (
             <span className="text-base font-normal text-gray-600 ml-2">
-              (Manifest: {order.manifestNumber})
+              ({order.manifestNumber ? `Manifest: ${order.manifestNumber}` : ''}{order.manifestNumber && order.transportCompany ? ', ' : ''}{order.transportCompany ? `Transport: ${order.transportCompany}` : ''})
             </span>
           )}
         </h2>
-        {order.manifestNumber && (
-          <p className="text-base text-gray-700 font-medium print:text-black">
-            Manifest Number: {order.manifestNumber}
-          </p>
+        {(order.manifestNumber || order.transportCompany) && (
+          <div className="text-base text-gray-700 font-medium print:text-black">
+            {order.manifestNumber && (
+              <span>Manifest Number: {order.manifestNumber}</span>
+            )}
+            {order.manifestNumber && order.transportCompany && (
+              <span className="text-gray-500 mx-2">•</span>
+            )}
+            {order.transportCompany && (
+              <span>Transport Company: {order.transportCompany}</span>
+            )}
+          </div>
         )}
       </div>
       <OrderTable order={order} productData={productData} />

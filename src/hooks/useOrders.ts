@@ -37,6 +37,7 @@ export function useOrders(profileId?: string) {
       const transformedOrders = (data || []).map(order => ({
         ...order,
         manifestNumber: order.manifest_number,
+        transportCompany: order.transport_company,
         products: order.products || []
       }));
       
@@ -67,6 +68,7 @@ export function useOrders(profileId?: string) {
           destination: order.destination,
           time: order.time,
           manifest_number: order.manifestNumber || null,
+          transport_company: order.transportCompany || null,
           products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
         };
         
@@ -90,6 +92,7 @@ export function useOrders(profileId?: string) {
           ...order,
           id: existingOrder.id,
           manifestNumber: order.manifestNumber,
+          transportCompany: order.transportCompany,
           profile_id: order.profile_id || profileId
         };
         
@@ -105,6 +108,7 @@ export function useOrders(profileId?: string) {
           destination: order.destination,
           time: order.time,
           manifest_number: order.manifestNumber || null,
+          transport_company: order.transportCompany || null,
           products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
         };
         
@@ -128,6 +132,7 @@ export function useOrders(profileId?: string) {
         updatedOrder = {
           ...data,
           manifestNumber: order.manifestNumber || data.manifest_number,
+          transportCompany: order.transportCompany || data.transport_company,
           products: order.products // Ensure products are included
         };
         
@@ -192,6 +197,7 @@ export function useOrders(profileId?: string) {
             destination: order.destination,
             time: order.time,
             manifest_number: order.manifestNumber || null,
+            transport_company: order.transportCompany || null,
             products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
           };
           
@@ -219,6 +225,7 @@ export function useOrders(profileId?: string) {
             destination: order.destination,
             time: order.time,
             manifest_number: order.manifestNumber || null,
+            transport_company: order.transportCompany || null,
             products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
           };
           

@@ -6,6 +6,7 @@ const HEADERS = [
   'Destination',
   'Time',
   'Manifest Number',
+  'Transport Company',
   'Product',
   'Code',
   'Old Code',
@@ -37,6 +38,7 @@ export const convertOrdersToExcel = (orders: Order[], productData: Product[]): X
         Destination: isFirstProduct ? order.destination : '',
         Time: isFirstProduct ? order.time : '',
         'Manifest Number': isFirstProduct ? (order.manifestNumber || '') : '',
+        'Transport Company': isFirstProduct ? (order.transportCompany || '') : '',
         Product: productName,
         Code: product.productCode,
         'Old Code': details?.oldCode || '',
@@ -59,11 +61,12 @@ export const convertOrdersToExcel = (orders: Order[], productData: Product[]): X
     A: 20, // Destination
     B: 10, // Time
     C: 15, // Manifest Number
-    D: 30, // Product
-    E: 15, // Code
-    F: 15, // Old Code
-    G: 10, // Packs
-    H: 15  // Output
+    D: 20, // Transport Company
+    E: 30, // Product
+    F: 15, // Code
+    G: 15, // Old Code
+    H: 10, // Packs
+    I: 15  // Output
   };
   
   worksheet['!cols'] = Object.entries(columnWidths).map(([_, width]) => ({ width }));
@@ -78,7 +81,7 @@ export const convertOrdersToExcel = (orders: Order[], productData: Product[]): X
 
   // Make Output column bold
   for (let i = 1; i <= rows.length; i++) {
-    const outputCellRef = XLSX.utils.encode_cell({ r: i, c: 7 }); // Column H (Output)
+    const outputCellRef = XLSX.utils.encode_cell({ r: i, c: 8 }); // Column I (Output)
     if (worksheet[outputCellRef] && worksheet[outputCellRef].v) {
       worksheet[outputCellRef].s = { font: { bold: true } };
     }

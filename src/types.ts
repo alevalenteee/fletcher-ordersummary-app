@@ -32,6 +32,7 @@ export interface Order {
   destination: string;
   time: string;
   manifestNumber?: string;
+  transportCompany?: string;
   products: OrderProduct[];
   user_id?: string;
   created_at?: string;

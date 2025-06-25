@@ -15,12 +15,13 @@ export async function analyzePDFContent(
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
-    const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the manifest/delivery number and product descriptions.
+    const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the manifest/delivery number, transport company, and product descriptions.
     
     Required format:
     {
       "destination": "string (one of: ARNDELL, BANYO, SALISBURY, DERRIMUT, MOONAH, JANDAKOT, GEPPS CROSS, BARON, SHEPPARTON, EE-FIT, CANBERRA)",
       "manifestNumber": "string (the delivery manifest number from the document header)",
+      "transportCompany": "string (the transport company name found near the word 'CARRIER' in the document)",
       "time": "00:00",
       "products": [
         {
@@ -36,18 +37,20 @@ export async function analyzePDFContent(
     2. Destination MUST exactly match one of the allowed values (case-sensitive)
     3. IMPORTANT: If you see "CANBERRA", "HUME", or "ACT" in the delivery address, use "CANBERRA" as the destination
     4. IMPORTANT: Extract the manifest/delivery number from the document header. This is typically labeled as "Delivery Number", "Manifest #", or similar
-    5. Look for product codes that start with either '20' or '40' or '10'
-    6. Pack quantities MUST be valid numbers
-    7. Products array MUST NOT be empty
-    8. Each product MUST have both productCode and packsOrdered
-    9. Look for product codes and quantities in the delivery details or line items
-    10. Time will always be "00:00" as it's not required
-    11. Extract ALL product codes and quantities that match the format
-    12. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
-    13. Look for details like:
+    5. IMPORTANT: Look for the transport company name that appears near or next to the word "CARRIER" in the document. Extract the company name with proper spacing (e.g., "ABC Transport", "XYZ Logistics")
+    6. Look for product codes that start with either '20' or '40' or '10'
+    7. Pack quantities MUST be valid numbers
+    8. Products array MUST NOT be empty
+    9. Each product MUST have both productCode and packsOrdered
+    10. Look for product codes and quantities in the delivery details or line items
+    11. Time will always be "00:00" as it's not required
+    12. Extract ALL product codes and quantities that match the format
+    13. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
+    14. Look for details like:
         - Product type (e.g., insulation, batts, rolls)
         - Dimensions or specifications
         - Any other identifying characteristics
+    15. If no transport company is found near "CARRIER", leave transportCompany empty or omit it
 
     Extract ONLY the required information in the exact format specified. Return ONLY the JSON object, nothing else.`;
 
@@ -90,6 +93,16 @@ export async function analyzePDFContent(
         
         if (!parsedOrder.manifestNumber) {
           delete parsedOrder.manifestNumber; // Remove if empty after cleaning
+        }
+      }
+      
+      // Clean and validate transport company
+      if (parsedOrder.transportCompany !== undefined) {
+        // Clean up transport company - remove any unwanted characters and whitespace
+        parsedOrder.transportCompany = String(parsedOrder.transportCompany).trim();
+        
+        if (!parsedOrder.transportCompany) {
+          delete parsedOrder.transportCompany; // Remove if empty after cleaning
         }
       }
       
