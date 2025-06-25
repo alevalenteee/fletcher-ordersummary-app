@@ -101,13 +101,6 @@ export const HomePage: React.FC<HomePageProps> = ({
         productData={productData}
         onEditOrder={onEditOrder}
         onDeleteOrder={onDeleteOrder}
-        onUpdateOrder={async (_, updatedOrder) => {
-          try {
-            await onOrderSubmit(updatedOrder);
-          } catch (error) {
-            console.error('Error updating order:', error);
-          }
-        }}
       />
 
       <SavedOrdersModal

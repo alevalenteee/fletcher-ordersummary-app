@@ -144,16 +144,6 @@ export const HomePage: React.FC<HomePageProps> = ({
         productData={productData}
         onEditOrder={onEditOrder}
         onDeleteOrder={onDeleteOrder}
-        onUpdateOrder={async (_, updatedOrder) => {
-          setIsSubmitting(true);
-          try {
-            await onOrderSubmit(updatedOrder);
-          } catch (error) {
-            console.error('Error updating order:', error);
-          } finally {
-            setIsSubmitting(false);
-          }
-        }}
       />
 
       <SavedOrdersModal
