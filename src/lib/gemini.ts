@@ -15,11 +15,11 @@ export async function analyzePDFContent(
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
-    const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the manifest/delivery number, transport company, and product descriptions.
+    const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the delivery address, manifest/delivery number, transport company, and product descriptions.
     
     Required format:
     {
-      "destination": "string (one of: ARNDELL, BANYO, SALISBURY, DERRIMUT, MOONAH, JANDAKOT, GEPPS CROSS, BARON, SHEPPARTON, EE-FIT, CANBERRA)",
+      "destination": "string (the delivery suburb/location in CAPITALS)",
       "manifestNumber": "string (the delivery manifest number from the document header)",
       "transportCompany": "string (the transport company name found near the word 'CARRIER' in the document)",
       "time": "00:00",
@@ -34,23 +34,23 @@ export async function analyzePDFContent(
 
     Strict Requirements:
     1. Response MUST be valid JSON
-    2. Destination MUST exactly match one of the allowed values (case-sensitive)
-    3. IMPORTANT: If you see "CANBERRA", "HUME", or "ACT" in the delivery address, use "CANBERRA" as the destination
-    4. IMPORTANT: Extract the manifest/delivery number from the document header. This is typically labeled as "Delivery Number", "Manifest #", or similar
-    5. IMPORTANT: Look for the transport company name that appears near or next to the word "CARRIER" in the document. Extract the company name with proper spacing (e.g., "ABC Transport", "XYZ Logistics")
-    6. Look for product codes that start with either '20' or '40' or '10'
-    7. Pack quantities MUST be valid numbers
-    8. Products array MUST NOT be empty
-    9. Each product MUST have both productCode and packsOrdered
-    10. Look for product codes and quantities in the delivery details or line items
-    11. Time will always be "00:00" as it's not required
-    12. Extract ALL product codes and quantities that match the format
-    13. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
-    14. Look for details like:
+    2. DESTINATION: Analyze the delivery address carefully. If the address contains any of these known locations (ARNDELL, BANYO, SALISBURY, DERRIMUT, MOONAH, JANDAKOT, GEPPS CROSS, BARON, SHEPPARTON, EE-FIT, CANBERRA), use that exact name. Otherwise, extract the SUBURB name from the delivery address and return it in CAPITALS.
+    3. IMPORTANT: Extract the manifest/delivery number from the document header. This is typically labeled as "Delivery Number", "Manifest #", or similar
+    4. IMPORTANT: Look for the transport company name that appears near or next to the word "CARRIER" in the document. Extract the company name with proper spacing (e.g., "ABC Transport", "XYZ Logistics")
+    5. Look for product codes that start with either '20' or '40' or '10'
+    6. Pack quantities MUST be valid numbers
+    7. Products array MUST NOT be empty
+    8. Each product MUST have both productCode and packsOrdered
+    9. Look for product codes and quantities in the delivery details or line items
+    10. Time will always be "00:00" as it's not required
+    11. Extract ALL product codes and quantities that match the format
+    12. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
+    13. Look for details like:
         - Product type (e.g., insulation, batts, rolls)
         - Dimensions or specifications
         - Any other identifying characteristics
-    15. If no transport company is found near "CARRIER", leave transportCompany empty or omit it
+    14. If no transport company is found near "CARRIER", leave transportCompany empty or omit it
+    15. For destination: Focus on the delivery address - extract the suburb/city name and ensure it's in CAPITALS
 
     Extract ONLY the required information in the exact format specified. Return ONLY the JSON object, nothing else.`;
 
@@ -113,25 +113,30 @@ export async function analyzePDFContent(
         throw new Error('Order must contain at least one product');
       }
       
-      // Validate destination against allowed values
-      const validDestinations = [
+      // Clean and validate destination
+      const cleanDestination = String(parsedOrder.destination).trim().toUpperCase();
+      
+      // Known hardcoded destinations that we want to preserve exactly
+      const knownDestinations = [
         'ARNDELL', 'BANYO', 'SALISBURY', 'DERRIMUT', 'MOONAH',
         'JANDAKOT', 'GEPPS CROSS', 'BARON', 'SHEPPARTON', 'EE-FIT', 'CANBERRA'
       ];
 
-      // Check if the destination contains CANBERRA, HUME, or ACT and normalize to CANBERRA
-      const upperDestination = parsedOrder.destination.toUpperCase();
-      if (upperDestination.includes('CANBERRA') || upperDestination.includes('HUME') || upperDestination.includes('ACT')) {
-        parsedOrder.destination = 'CANBERRA';
-      } else if (!validDestinations.includes(upperDestination)) {
-        // Find closest match
-        const closest = validDestinations.reduce((prev, curr) => {
-          const prevDiff = levenshteinDistance(upperDestination, prev);
-          const currDiff = levenshteinDistance(upperDestination, curr);
-          return currDiff < prevDiff ? curr : prev;
-        });
-        throw new Error(`Invalid destination. Did you mean "${closest}"?`);
+      // Check if destination matches any known destinations or contains them
+      let finalDestination = cleanDestination;
+      
+      // Check if any known destination is contained in the extracted destination
+      const matchedKnownDestination = knownDestinations.find(known => 
+        cleanDestination.includes(known) || cleanDestination === known
+      );
+      
+      if (matchedKnownDestination) {
+        finalDestination = matchedKnownDestination;
       }
+      // If no known destination matches, use the cleaned extracted destination as-is
+      // This allows for new suburbs/locations to be displayed
+      
+      parsedOrder.destination = finalDestination;
       
       // Validate products
       parsedOrder.products = parsedOrder.products.filter((product: GeminiProduct) => {
@@ -186,23 +191,3 @@ export async function analyzePDFContent(
   }
 }
 
-// Helper function to find closest matching destination
-function levenshteinDistance(a: string, b: string): number {
-  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
-
-  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
-  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
-
-  for (let j = 1; j <= b.length; j++) {
-    for (let i = 1; i <= a.length; i++) {
-      const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[j][i] = Math.min(
-        matrix[j][i - 1] + 1,
-        matrix[j - 1][i] + 1,
-        matrix[j - 1][i - 1] + indicator
-      );
-    }
-  }
-
-  return matrix[b.length][a.length];
-}
