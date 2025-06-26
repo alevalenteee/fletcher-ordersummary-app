@@ -79,6 +79,10 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
               productCount: order.products.length
             });
             
+            if (order.time && order.time !== "00:00") {
+              console.log('Successfully extracted time from PDF:', order.time);
+            }
+            
             if (order.manifestNumber) {
               console.log('Found manifest number:', order.manifestNumber);
             }

@@ -22,7 +22,7 @@ export async function analyzePDFContent(
       "destination": "string (the delivery suburb/location in CAPITALS)",
       "manifestNumber": "string (the delivery manifest number from the document header)",
       "transportCompany": "string (the transport company name found near the word 'CARRIER' in the document)",
-      "time": "00:00",
+      "time": "HH:MM (24-hour format time, usually found in the top right of the PDF)",
       "products": [
         {
           "productCode": "string (can start with '20' or '40' or '10')",
@@ -37,12 +37,12 @@ export async function analyzePDFContent(
     2. DESTINATION: Analyze the delivery address carefully. If the address contains any of these known locations (ARNDELL, BANYO, SALISBURY, DERRIMUT, MOONAH, JANDAKOT, GEPPS CROSS, BARON, SHEPPARTON, EE-FIT, CANBERRA), use that exact name. Otherwise, extract the SUBURB name from the delivery address and return it in CAPITALS.
     3. IMPORTANT: Extract the manifest/delivery number from the document header. This is typically labeled as "Delivery Number", "Manifest #", or similar
     4. IMPORTANT: Look for the transport company name that appears near or next to the word "CARRIER" in the document. Extract the company name with proper spacing (e.g., "ABC Transport", "XYZ Logistics")
-    5. Look for product codes that start with either '20' or '40' or '10'
-    6. Pack quantities MUST be valid numbers
-    7. Products array MUST NOT be empty
-    8. Each product MUST have both productCode and packsOrdered
-    9. Look for product codes and quantities in the delivery details or line items
-    10. Time will always be "00:00" as it's not required
+    5. CRITICAL: Extract the TIME in 24-hour format (HH:MM) from the document. This is usually located in the top right area of the PDF. Look for times like "08:30", "14:15", "07:00", etc. If no time is found, use "00:00" as fallback.
+    6. Look for product codes that start with either '20' or '40' or '10'
+    7. Pack quantities MUST be valid numbers
+    8. Products array MUST NOT be empty
+    9. Each product MUST have both productCode and packsOrdered
+    10. Look for product codes and quantities in the delivery details or line items
     11. Extract ALL product codes and quantities that match the format
     12. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
     13. Look for details like:
@@ -106,8 +106,18 @@ export async function analyzePDFContent(
         }
       }
       
-      // Set default time since it's not required
-      parsedOrder.time = "00:00";
+      // Validate and set time
+      if (!parsedOrder.time || parsedOrder.time === "" || parsedOrder.time === "00:00") {
+        // If no time was extracted, use "00:00" as fallback
+        parsedOrder.time = "00:00";
+      } else {
+        // Validate time format (HH:MM)
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        if (!timeRegex.test(parsedOrder.time)) {
+          console.warn(`Invalid time format extracted: ${parsedOrder.time}, using fallback 00:00`);
+          parsedOrder.time = "00:00";
+        }
+      }
       
       if (!Array.isArray(parsedOrder.products) || parsedOrder.products.length === 0) {
         throw new Error('Order must contain at least one product');
