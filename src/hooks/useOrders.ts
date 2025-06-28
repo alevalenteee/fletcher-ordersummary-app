@@ -38,6 +38,8 @@ export function useOrders(profileId?: string) {
         ...order,
         manifestNumber: order.manifest_number,
         transportCompany: order.transport_company,
+        trailerType: order.trailer_type,
+        trailerSize: order.trailer_size,
         products: order.products || []
       }));
       
@@ -69,6 +71,8 @@ export function useOrders(profileId?: string) {
           time: order.time,
           manifest_number: order.manifestNumber || null,
           transport_company: order.transportCompany || null,
+          trailer_type: order.trailerType || null,
+          trailer_size: order.trailerSize || null,
           products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
         };
         
@@ -93,6 +97,8 @@ export function useOrders(profileId?: string) {
           id: existingOrder.id,
           manifestNumber: order.manifestNumber,
           transportCompany: order.transportCompany,
+          trailerType: order.trailerType,
+          trailerSize: order.trailerSize,
           profile_id: order.profile_id || profileId
         };
         
@@ -109,6 +115,8 @@ export function useOrders(profileId?: string) {
           time: order.time,
           manifest_number: order.manifestNumber || null,
           transport_company: order.transportCompany || null,
+          trailer_type: order.trailerType || null,
+          trailer_size: order.trailerSize || null,
           products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
         };
         
@@ -133,6 +141,8 @@ export function useOrders(profileId?: string) {
           ...data,
           manifestNumber: order.manifestNumber || data.manifest_number,
           transportCompany: order.transportCompany || data.transport_company,
+          trailerType: order.trailerType || data.trailer_type,
+          trailerSize: order.trailerSize || data.trailer_size,
           products: order.products // Ensure products are included
         };
         
@@ -198,6 +208,8 @@ export function useOrders(profileId?: string) {
             time: order.time,
             manifest_number: order.manifestNumber || null,
             transport_company: order.transportCompany || null,
+            trailer_type: order.trailerType || null,
+            trailer_size: order.trailerSize || null,
             products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
           };
           
@@ -226,6 +238,8 @@ export function useOrders(profileId?: string) {
             time: order.time,
             manifest_number: order.manifestNumber || null,
             transport_company: order.transportCompany || null,
+            trailer_type: order.trailerType || null,
+            trailer_size: order.trailerSize || null,
             products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
           };
           

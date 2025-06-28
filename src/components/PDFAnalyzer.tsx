@@ -76,6 +76,8 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
               time: order.time,
               manifestNumber: order.manifestNumber,
               transportCompany: order.transportCompany,
+              trailerType: order.trailerType,
+              trailerSize: order.trailerSize,
               productCount: order.products.length
             });
             
@@ -89,6 +91,7 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
             if (order.transportCompany) {
               console.log('Found transport company:', order.transportCompany);
             }
+
             analyzedOrders.push(order);
           } else {
             throw new Error(`Failed to analyze PDF: ${file.name}`);
@@ -102,11 +105,12 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
 
       if (analyzedOrders.length > 0) {
         // Log orders before submitting
-        console.log('Submitting orders with manifests and transport companies:', 
+        console.log('Submitting orders with manifests, transport companies, and trailer info:', 
           analyzedOrders.map(o => ({
             destination: o.destination,
             manifestNumber: o.manifestNumber,
-            transportCompany: o.transportCompany
+            transportCompany: o.transportCompany,
+            trailerInfo: o.trailerType || o.trailerSize ? `${o.trailerType || ''} ${o.trailerSize || ''}`.trim() : 'None'
           }))
         );
         

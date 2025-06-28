@@ -33,6 +33,8 @@ export interface Order {
   time: string;
   manifestNumber?: string;
   transportCompany?: string;
+  trailerType?: string;
+  trailerSize?: string;
   products: OrderProduct[];
   user_id?: string;
   created_at?: string;

@@ -9,6 +9,7 @@ import { LoadingModal } from './ui/LoadingModal';
 import { Printer, Edit2, Trash2, Trash, Download } from 'lucide-react';
 import { downloadExcel } from '@/utils/export';
 import { sortOrdersByTime } from '@/utils/time';
+import { formatTrailerInfo } from '@/lib/utils';
 
 interface OrdersListProps {
   orders: Order[];
@@ -136,16 +137,22 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                 <h3 className="text-xl font-medium">
                   {order.destination} - {order.time}
                 </h3>
-                {(order.manifestNumber || order.transportCompany) && (
+                {(order.manifestNumber || order.transportCompany || order.trailerType || order.trailerSize) && (
                   <div className="text-base text-gray-700 font-medium">
                     {order.manifestNumber && (
                       <span>Manifest Number: {order.manifestNumber}</span>
                     )}
-                    {order.manifestNumber && order.transportCompany && (
+                    {order.manifestNumber && (order.transportCompany || order.trailerType || order.trailerSize) && (
                       <span className="text-gray-500 mx-2">•</span>
                     )}
                     {order.transportCompany && (
                       <span>Transport: {order.transportCompany}</span>
+                    )}
+                    {order.transportCompany && (order.trailerType || order.trailerSize) && (
+                      <span className="text-gray-500 mx-2">•</span>
+                    )}
+                    {(order.trailerType || order.trailerSize) && (
+                      <span>{formatTrailerInfo(order.trailerType, order.trailerSize)}</span>
                     )}
                   </div>
                 )}

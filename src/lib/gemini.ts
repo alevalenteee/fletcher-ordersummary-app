@@ -15,13 +15,15 @@ export async function analyzePDFContent(
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
-    const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the delivery address, manifest/delivery number, transport company, and product descriptions.
+    const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the delivery address, manifest/delivery number, transport company, trailer information, and product descriptions.
     
     Required format:
     {
       "destination": "string (the delivery suburb/location in CAPITALS)",
       "manifestNumber": "string (the delivery manifest number from the document header)",
       "transportCompany": "string (the transport company name found near the word 'CARRIER' in the document)",
+      "trailerType": "string (trailer type from VEHICLE section, e.g., B_DOUBLE, TRUCK, SEMI)",
+      "trailerSize": "string (trailer size from VEHICLE section, e.g., 173M3, 120M3)",
       "time": "HH:MM (24-hour format time, usually found in the top right of the PDF)",
       "products": [
         {
@@ -37,20 +39,26 @@ export async function analyzePDFContent(
     2. DESTINATION: Analyze the delivery address carefully. If the address contains any of these known locations (ARNDELL, BANYO, SALISBURY, DERRIMUT, MOONAH, JANDAKOT, GEPPS CROSS, BARON, SHEPPARTON, EE-FIT, CANBERRA), use that exact name. Otherwise, extract the SUBURB name from the delivery address and return it in CAPITALS.
     3. IMPORTANT: Extract the manifest/delivery number from the document header. This is typically labeled as "Delivery Number", "Manifest #", or similar
     4. IMPORTANT: Look for the transport company name that appears near or next to the word "CARRIER" in the document. Extract the company name with proper spacing (e.g., "ABC Transport", "XYZ Logistics")
-    5. CRITICAL: Extract the TIME in 24-hour format (HH:MM) from the document. This is usually located in the top right area of the PDF. Look for times like "08:30", "14:15", "07:00", etc. If no time is found, use "00:00" as fallback.
-    6. Look for product codes that start with either '20' or '40' or '10'
-    7. Pack quantities MUST be valid numbers
-    8. Products array MUST NOT be empty
-    9. Each product MUST have both productCode and packsOrdered
-    10. Look for product codes and quantities in the delivery details or line items
-    11. Extract ALL product codes and quantities that match the format
-    12. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
-    13. Look for details like:
+    5. TRAILER INFORMATION: Look for vehicle/trailer information anywhere in the PDF, particularly in sections labeled "VEHICLE", "TRUCK", "TRAILER", or similar. Extract:
+       - Trailer Type: Look for vehicle/trailer type descriptions such as "B_DOUBLE", "B-DOUBLE", "BDOUBLE", "TRUCK", "SEMI", "RIGID", "PANTECH"
+       - Trailer Size: Look for size/capacity information in cubic meters, typically formatted as "173M3", "120M3", "85M3" or similar
+       - The information might be in a table, list, or free text format
+       - Search the entire document if no dedicated VEHICLE section exists
+       - If no trailer information is found, leave these fields empty
+    6. CRITICAL: Extract the TIME in 24-hour format (HH:MM) from the document. This is usually located in the top right area of the PDF. Look for times like "08:30", "14:15", "07:00", etc. If no time is found, use "00:00" as fallback.
+    7. Look for product codes that start with either '20' or '40' or '10'
+    8. Pack quantities MUST be valid numbers
+    9. Products array MUST NOT be empty
+    10. Each product MUST have both productCode and packsOrdered
+    11. Look for product codes and quantities in the delivery details or line items
+    12. Extract ALL product codes and quantities that match the format
+    13. For any product code that's not recognized, analyze the surrounding text and provide a description of the product
+    14. Look for details like:
         - Product type (e.g., insulation, batts, rolls)
         - Dimensions or specifications
         - Any other identifying characteristics
-    14. If no transport company is found near "CARRIER", leave transportCompany empty or omit it
-    15. For destination: Focus on the delivery address - extract the suburb/city name and ensure it's in CAPITALS
+    15. If no transport company is found near "CARRIER", leave transportCompany empty or omit it
+    16. For destination: Focus on the delivery address - extract the suburb/city name and ensure it's in CAPITALS
 
     Extract ONLY the required information in the exact format specified. Return ONLY the JSON object, nothing else.`;
 
@@ -103,6 +111,26 @@ export async function analyzePDFContent(
         
         if (!parsedOrder.transportCompany) {
           delete parsedOrder.transportCompany; // Remove if empty after cleaning
+        }
+      }
+      
+      // Clean and validate trailer type
+      if (parsedOrder.trailerType !== undefined) {
+        // Clean up trailer type - remove any unwanted characters and whitespace
+        parsedOrder.trailerType = String(parsedOrder.trailerType).trim();
+        
+        if (!parsedOrder.trailerType) {
+          delete parsedOrder.trailerType; // Remove if empty after cleaning
+        }
+      }
+      
+      // Clean and validate trailer size
+      if (parsedOrder.trailerSize !== undefined) {
+        // Clean up trailer size - remove any unwanted characters and whitespace
+        parsedOrder.trailerSize = String(parsedOrder.trailerSize).trim();
+        
+        if (!parsedOrder.trailerSize) {
+          delete parsedOrder.trailerSize; // Remove if empty after cleaning
         }
       }
       
