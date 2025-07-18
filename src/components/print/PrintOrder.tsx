@@ -23,7 +23,7 @@ export const PrintOrder: React.FC<PrintOrderProps> = ({
             <span className="text-base font-normal text-gray-600 sm:ml-2">
               ({[
                 order.manifestNumber ? `Manifest: ${order.manifestNumber}` : '',
-                order.transportCompany ? `Transport: ${order.transportCompany}` : '',
+                order.transportCompany ? order.transportCompany : '',
                 (order.trailerType || order.trailerSize) ? formatTrailerInfo(order.trailerType, order.trailerSize) : ''
               ].filter(Boolean).join(', ')})
             </span>

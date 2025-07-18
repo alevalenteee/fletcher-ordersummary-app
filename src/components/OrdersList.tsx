@@ -146,7 +146,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                       <span className="text-gray-500 mx-2">•</span>
                     )}
                     {order.transportCompany && (
-                      <span>Transport: {order.transportCompany}</span>
+                      <span>{order.transportCompany}</span>
                     )}
                     {order.transportCompany && (order.trailerType || order.trailerSize) && (
                       <span className="text-gray-500 mx-2">•</span>

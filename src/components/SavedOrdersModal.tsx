@@ -106,7 +106,7 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
                             <span className="mx-1">•</span>
                           )}
                           {order.transportCompany && (
-                            <span>Transport: {order.transportCompany}</span>
+                            <span>{order.transportCompany}</span>
                           )}
                         </div>
                       )}

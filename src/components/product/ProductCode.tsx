@@ -11,7 +11,7 @@ export const ProductCode: React.FC<ProductCodeProps> = ({ details, code, manualD
   if (details) {
     return (
       <>
-        {details.newCode} (<strong>{details.oldCode}</strong>)
+        <strong>{details.newCode}</strong> ({details.oldCode})
       </>
     );
   }
@@ -19,10 +19,10 @@ export const ProductCode: React.FC<ProductCodeProps> = ({ details, code, manualD
   if (manualDetails?.secondaryCode) {
     return (
       <>
-        {code} (<strong>{manualDetails.secondaryCode}</strong>)
+        <strong>{code}</strong> ({manualDetails.secondaryCode})
       </>
     );
   }
   
-  return <>{code}</>;
+  return <strong>{code}</strong>;
 }
