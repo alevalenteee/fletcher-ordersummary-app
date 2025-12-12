@@ -13,7 +13,7 @@ export async function analyzePDFContent(
   productData: Product[]
 ): Promise<Order | null> {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the delivery address, manifest/delivery number, transport company, trailer information, and product descriptions.
     
