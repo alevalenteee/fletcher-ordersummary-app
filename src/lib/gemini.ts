@@ -1,20 +1,21 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { Order, Product, OrderProduct } from '@/types';
 
-// Interface for Gemini API response product
 interface GeminiProduct extends Partial<OrderProduct> {
   description?: string;
 }
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
+const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
+
+const ai = new GoogleGenAI({
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
+});
 
 export async function analyzePDFContent(
-  base64PDF: string, 
+  base64PDF: string,
   productData: Product[]
 ): Promise<Order | null> {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-    
     const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the delivery address, manifest/delivery number, transport company, trailer information, and product descriptions.
     
     Required format:
@@ -62,18 +63,20 @@ export async function analyzePDFContent(
 
     Extract ONLY the required information in the exact format specified. Return ONLY the JSON object, nothing else.`;
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: "application/pdf",
-          data: base64PDF
-        }
-      }
-    ]);
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: 'application/pdf',
+            data: base64PDF,
+          },
+        },
+      ],
+    });
 
-    const response = await result.response;
-    const text = response.text();
+    const text = response.text ?? '';
     
     try {
       // Attempt to extract JSON from the response
