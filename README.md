@@ -36,7 +36,12 @@ cd fletcher-ordersummary-app
 npm install
 ```
 
-3. Create a `.env` file in the root directory and add your environment variables:
+3. Copy `.env.example` to `.env` in the root directory and fill in the values:
+```bash
+cp .env.example .env
+```
+
+Required variables:
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
