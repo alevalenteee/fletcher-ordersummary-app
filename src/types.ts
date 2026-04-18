@@ -27,6 +27,12 @@ export interface Profile {
   created_at?: string;
 }
 
+export interface Destination {
+  id: string;
+  name: string;
+  created_at?: string;
+}
+
 export interface Order {
   id?: string;
   destination: string;

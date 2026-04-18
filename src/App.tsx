@@ -3,10 +3,10 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
 import { HomePage } from './pages/HomePage';
 import { PrintView } from './components/PrintView';
-import { LiveLoadingPage } from './pages/LiveLoadingPage';
 import { useOrders } from './hooks/useOrders';
 import { useProductData } from './hooks/useProductData';
 import { useProfiles } from './hooks/useProfiles';
+import { useDestinations } from './hooks/useDestinations';
 import { useRouteState } from './hooks/useRouteState';
 import { PageTransition } from './components/transitions/PageTransition';
 import './styles/animations.css';
@@ -43,6 +43,13 @@ function MainApp() {
     handleDeleteOrder
   } = useOrders(currentProfile?.id);
 
+  // Destinations (globally shared, not profile-scoped)
+  const {
+    destinations,
+    createDestination,
+    deleteDestination
+  } = useDestinations();
+
   // Handle profile switching
   const handleSwitchProfile = async (profileId: string) => {
     // First switch the profile
@@ -73,10 +80,6 @@ function MainApp() {
             element={<PrintView orders={orders} productData={productData} />}
           />
           <Route
-            path="/live-loading"
-            element={<LiveLoadingPage productData={productData} />}
-          />
-          <Route
             path="/"
             element={
               <HomePage
@@ -96,6 +99,9 @@ function MainApp() {
                 onCreateProfile={createProfile}
                 onUpdateProfile={updateProfile}
                 onDeleteProfile={deleteProfile}
+                destinations={destinations}
+                onCreateDestination={createDestination}
+                onDeleteDestination={deleteDestination}
               />
             }
           />

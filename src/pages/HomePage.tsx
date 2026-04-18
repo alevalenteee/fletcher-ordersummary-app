@@ -2,11 +2,8 @@ import React from 'react';
 import { FileUpload } from '@/components/FileUpload';
 import { OrderForm } from '@/components/OrderForm';
 import { OrdersList } from '@/components/OrdersList';
-import { SavedOrdersModal } from '@/components/SavedOrdersModal';
 import { PDFAnalyzer } from '@/components/PDFAnalyzer';
-import { Order, Product, Profile } from '@/types';
-import { Button } from '@/components/ui/Button';
-import { Archive } from 'lucide-react';
+import { Destination, Order, Product, Profile } from '@/types';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import { ProfileSelector } from '@/components/ProfileSelector';
 
@@ -27,6 +24,9 @@ interface HomePageProps {
   onCreateProfile?: (profile: Omit<Profile, 'id' | 'created_at'>) => void;
   onUpdateProfile?: (id: string, updates: Partial<Omit<Profile, 'id' | 'created_at'>>) => void;
   onDeleteProfile?: (id: string) => void;
+  destinations?: Destination[];
+  onCreateDestination?: (name: string) => Promise<Destination>;
+  onDeleteDestination?: (id: string) => Promise<void>;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -45,9 +45,11 @@ export const HomePage: React.FC<HomePageProps> = ({
   onSwitchProfile = () => {},
   onCreateProfile = () => {},
   onUpdateProfile = () => {},
-  onDeleteProfile = () => {}
+  onDeleteProfile = () => {},
+  destinations = [],
+  onCreateDestination = async () => { throw new Error('onCreateDestination not provided'); },
+  onDeleteDestination = async () => {}
 }) => {
-  const [showSavedOrders, setShowSavedOrders] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Track submitting state for orders
@@ -83,30 +85,18 @@ export const HomePage: React.FC<HomePageProps> = ({
     <>
       <LoadingModal isOpen={isSubmitting} message="Updating Orders..." />
       
-      <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="w-full order-1 sm:order-1 sm:w-auto">
-            {currentProfile && (
-              <ProfileSelector
-                profiles={profiles}
-                currentProfile={currentProfile}
-                onSwitchProfile={onSwitchProfile}
-                onCreateProfile={onCreateProfile}
-                onUpdateProfile={onUpdateProfile}
-                onDeleteProfile={onDeleteProfile}
-              />
-            )}
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => setShowSavedOrders(true)}
-            className="flex items-center justify-center gap-2 w-full order-2 sm:order-2 sm:w-auto"
-          >
-            <Archive className="w-5 h-5" />
-            View Orders
-          </Button>
+      {currentProfile && (
+        <div className="bg-white rounded-lg p-4 mb-6 shadow-sm flex justify-center sm:justify-start">
+          <ProfileSelector
+            profiles={profiles}
+            currentProfile={currentProfile}
+            onSwitchProfile={onSwitchProfile}
+            onCreateProfile={onCreateProfile}
+            onUpdateProfile={onUpdateProfile}
+            onDeleteProfile={onDeleteProfile}
+          />
         </div>
-      </div>
+      )}
 
       <FileUpload 
         onDataLoaded={onDataLoaded}
@@ -117,6 +107,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       
       <PDFAnalyzer
         productData={productData}
+        destinations={destinations}
         onOrdersAnalyzed={async (analyzedOrders) => {
           setIsSubmitting(true);
           try {
@@ -137,19 +128,15 @@ export const HomePage: React.FC<HomePageProps> = ({
         productData={productData}
         onSubmit={handleOrderSubmitWithLoading}
         initialOrder={editingOrder}
+        destinations={destinations}
+        onCreateDestination={onCreateDestination}
+        onDeleteDestination={onDeleteDestination}
       />
       
       <OrdersList
         orders={orders}
         productData={productData}
         onEditOrder={onEditOrder}
-        onDeleteOrder={onDeleteOrder}
-      />
-
-      <SavedOrdersModal
-        isOpen={showSavedOrders}
-        onClose={() => setShowSavedOrders(false)}
-        savedOrders={orders}
         onDeleteOrder={onDeleteOrder}
       />
     </>

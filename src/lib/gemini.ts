@@ -13,9 +13,14 @@ const ai = new GoogleGenAI({
 
 export async function analyzePDFContent(
   base64PDF: string,
-  productData: Product[]
+  productData: Product[],
+  destinations: string[]
 ): Promise<Order | null> {
   try {
+    const destinationsList = destinations.length > 0
+      ? destinations.join(', ')
+      : '(none configured)';
+
     const prompt = `Analyze this delivery manifest PDF and extract the following information in a strict JSON format. Pay special attention to the delivery address, manifest/delivery number, transport company, trailer information, and product descriptions.
     
     Required format:
@@ -37,7 +42,7 @@ export async function analyzePDFContent(
 
     Strict Requirements:
     1. Response MUST be valid JSON
-    2. DESTINATION: Analyze the delivery address carefully. If the address contains any of these known locations (ARNDELL, BANYO, SALISBURY, DERRIMUT, MOONAH, JANDAKOT, GEPPS CROSS, BARON, SHEPPARTON, EE-FIT, CANBERRA), use that exact name. Otherwise, extract the SUBURB name from the delivery address and return it in CAPITALS.
+    2. DESTINATION: Analyze the delivery address carefully. If the address contains any of these known locations (${destinationsList}), use that exact name. Otherwise, extract the SUBURB name from the delivery address and return it in CAPITALS.
     3. IMPORTANT: Extract the manifest/delivery number from the document header. This is typically labeled as "Delivery Number", "Manifest #", or similar
     4. IMPORTANT: Look for the transport company name that appears near or next to the word "CARRIER" in the document. Extract the company name with proper spacing (e.g., "ABC Transport", "XYZ Logistics")
     5. TRAILER INFORMATION: Look for vehicle/trailer information anywhere in the PDF, particularly in sections labeled "VEHICLE", "TRUCK", "TRAILER", or similar. Extract:
@@ -156,27 +161,25 @@ export async function analyzePDFContent(
       
       // Clean and validate destination
       const cleanDestination = String(parsedOrder.destination).trim().toUpperCase();
-      
-      // Known hardcoded destinations that we want to preserve exactly
-      const knownDestinations = [
-        'ARNDELL', 'BANYO', 'SALISBURY', 'DERRIMUT', 'MOONAH',
-        'JANDAKOT', 'GEPPS CROSS', 'BARON', 'SHEPPARTON', 'EE-FIT', 'CANBERRA'
-      ];
 
-      // Check if destination matches any known destinations or contains them
+      // Sorted longest-first so e.g. "GEPPS CROSS" matches before "GEPPS" would
+      // if a user ever added a shorter overlapping entry.
+      const knownDestinations = [...destinations]
+        .map(d => d.toUpperCase())
+        .sort((a, b) => b.length - a.length);
+
       let finalDestination = cleanDestination;
-      
-      // Check if any known destination is contained in the extracted destination
-      const matchedKnownDestination = knownDestinations.find(known => 
+
+      const matchedKnownDestination = knownDestinations.find(known =>
         cleanDestination.includes(known) || cleanDestination === known
       );
-      
+
       if (matchedKnownDestination) {
         finalDestination = matchedKnownDestination;
       }
       // If no known destination matches, use the cleaned extracted destination as-is
-      // This allows for new suburbs/locations to be displayed
-      
+      // This allows for new suburbs/locations to be displayed.
+
       parsedOrder.destination = finalDestination;
       
       // Validate products

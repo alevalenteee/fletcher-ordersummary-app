@@ -1,19 +1,19 @@
 import React from 'react';
-import { Product, OrderProduct, Order } from '@/types';
+import { Settings2 } from 'lucide-react';
+import { Destination, Product, OrderProduct, Order } from '@/types';
 import { getProductDetails, formatRValue, convertToOutput, getOutputUnit } from '../utils';
 import { ProductDetailsForm } from './product/ProductDetailsForm';
 import { LoadingModal } from './ui/LoadingModal';
+import { DestinationsModal } from './DestinationsModal';
 
 interface OrderFormProps {
   productData: Product[];
   onSubmit: (order: Order) => void;
   initialOrder: Order | null;
+  destinations: Destination[];
+  onCreateDestination: (name: string) => Promise<Destination>;
+  onDeleteDestination: (id: string) => Promise<void>;
 }
-
-const DESTINATIONS = [
-  'ARNDELL', 'BANYO', 'SALISBURY', 'DERRIMUT', 'MOONAH',
-  'JANDAKOT', 'GEPPS CROSS', 'BARON', 'SHEPPARTON', 'EE-FIT', 'CANBERRA'
-];
 
 const TIMES = Array.from({ length: 24 }, (_, i) => 
   `${String(i).padStart(2, '0')}:00`
@@ -22,7 +22,10 @@ const TIMES = Array.from({ length: 24 }, (_, i) =>
 export const OrderForm: React.FC<OrderFormProps> = ({ 
   productData, 
   onSubmit,
-  initialOrder 
+  initialOrder,
+  destinations,
+  onCreateDestination,
+  onDeleteDestination
 }) => {
   const [destination, setDestination] = React.useState('');
   const [customDestination, setCustomDestination] = React.useState('');
@@ -37,11 +40,15 @@ export const OrderForm: React.FC<OrderFormProps> = ({
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [products, setProducts] = React.useState<OrderProduct[]>([]);
+  const [showDestinationsModal, setShowDestinationsModal] = React.useState(false);
 
-  // Load initial order data if editing
+  // Load initial order data if editing. When the destination on the order is no
+  // longer in the list (e.g. removed by the user), it falls back to the custom
+  // input so the original string is preserved on edit.
   React.useEffect(() => {
     if (initialOrder) {
-      const isCustomDest = !DESTINATIONS.includes(initialOrder.destination);
+      const destinationNames = destinations.map(d => d.name);
+      const isCustomDest = !destinationNames.includes(initialOrder.destination);
       setDestination(isCustomDest ? 'custom' : initialOrder.destination);
       setCustomDestination(isCustomDest ? initialOrder.destination : '');
 
@@ -51,7 +58,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
 
       setProducts(initialOrder.products);
     }
-  }, [initialOrder]);
+  }, [initialOrder, destinations]);
 
   const handleAddProduct = () => {
     if (!productCode || !packs) return;
@@ -139,9 +146,20 @@ export const OrderForm: React.FC<OrderFormProps> = ({
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Destination
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Destination
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowDestinationsModal(true)}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+              title="Manage destinations"
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+              Manage
+            </button>
+          </div>
           <select
             value={destination}
             onChange={(e) => {
@@ -153,8 +171,8 @@ export const OrderForm: React.FC<OrderFormProps> = ({
             className="w-full p-2 border rounded-md"
           >
             <option value="">Select destination...</option>
-            {DESTINATIONS.map(dest => (
-              <option key={dest} value={dest}>{dest}</option>
+            {destinations.map(dest => (
+              <option key={dest.id} value={dest.name}>{dest.name}</option>
             ))}
             <option value="custom">Other...</option>
           </select>
@@ -309,6 +327,14 @@ export const OrderForm: React.FC<OrderFormProps> = ({
           />
         </div>
       )}
+
+      <DestinationsModal
+        isOpen={showDestinationsModal}
+        onClose={() => setShowDestinationsModal(false)}
+        destinations={destinations}
+        onCreateDestination={onCreateDestination}
+        onDeleteDestination={onDeleteDestination}
+      />
     </div>
   );
 };

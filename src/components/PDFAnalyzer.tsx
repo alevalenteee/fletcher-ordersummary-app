@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDropzone } from 'react-dropzone';
 import { FileUp, Loader2, AlertCircle } from 'lucide-react';
-import { Order } from '@/types';
+import { Destination, Order } from '@/types';
 import { Button } from './ui/Button';
 import { LoadingModal } from './ui/LoadingModal';
 import { analyzePDFContent } from '@/lib/gemini';
@@ -10,11 +10,13 @@ import { cn } from '@/lib/utils';
 interface PDFAnalyzerProps {
   onOrdersAnalyzed: (orders: Order[]) => void;
   productData: any[];
+  destinations: Destination[];
 }
 
 export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
   onOrdersAnalyzed,
-  productData
+  productData,
+  destinations
 }) => {
   const [files, setFiles] = React.useState<File[]>([]);
   const [analyzing, setAnalyzing] = React.useState(false);
@@ -68,7 +70,11 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
 
         // Analyze PDF using Gemini
         try {
-          const order = await analyzePDFContent(base64, productData);
+          const order = await analyzePDFContent(
+            base64,
+            productData,
+            destinations.map(d => d.name)
+          );
           if (order) {
             // Log the extracted order for debugging
             console.log('Extracted order with manifest:', {

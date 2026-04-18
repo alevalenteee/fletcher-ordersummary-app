@@ -21,7 +21,7 @@ export function useRouteState() {
 
   // Handle 404s and invalid routes
   useEffect(() => {
-    const validRoutes = ['/', '/print', '/live-loading'];
+    const validRoutes = ['/', '/print'];
     if (!validRoutes.includes(location.pathname)) {
       navigate('/', { replace: true });
     }
