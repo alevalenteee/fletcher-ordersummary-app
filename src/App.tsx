@@ -7,6 +7,8 @@ import { useOrders } from './hooks/useOrders';
 import { useProductData } from './hooks/useProductData';
 import { useProfiles } from './hooks/useProfiles';
 import { useDestinations } from './hooks/useDestinations';
+import { useLocations } from './hooks/useLocations';
+import { useOrderLocations } from './hooks/useOrderLocations';
 import { useRouteState } from './hooks/useRouteState';
 import { PageTransition } from './components/transitions/PageTransition';
 import './styles/animations.css';
@@ -50,6 +52,23 @@ function MainApp() {
     deleteDestination
   } = useDestinations();
 
+  // Locations catalogue (hardcoded-seeded, read-only)
+  const { locations } = useLocations();
+
+  // Per-order location assignments (localStorage-backed, device-local)
+  const {
+    getLocationsFor,
+    setDraft: setOrderLocationsDraft,
+    clearOrder: clearOrderLocations,
+  } = useOrderLocations();
+
+  // Wrap delete so the order's location assignments disappear with it.
+  const handleDeleteOrderWithLocations = async (index: number) => {
+    const target = orders[index];
+    await handleDeleteOrder(index);
+    clearOrderLocations(target?.id);
+  };
+
   // Handle profile switching
   const handleSwitchProfile = async (profileId: string) => {
     // First switch the profile
@@ -77,7 +96,14 @@ function MainApp() {
         <Routes location={location}>
           <Route
             path="/print"
-            element={<PrintView orders={orders} productData={productData} />}
+            element={
+              <PrintView
+                orders={orders}
+                productData={productData}
+                locations={locations}
+                getLocationsFor={getLocationsFor}
+              />
+            }
           />
           <Route
             path="/"
@@ -89,7 +115,7 @@ function MainApp() {
                 onSaveDefault={saveAsDefault}
                 onOrderSubmit={handleOrderSubmit}
                 onEditOrder={handleEditOrder}
-                onDeleteOrder={handleDeleteOrder}
+                onDeleteOrder={handleDeleteOrderWithLocations}
                 orders={orders}
                 loading={ordersLoading || profilesLoading}
                 error={ordersError || profilesError}
@@ -102,6 +128,9 @@ function MainApp() {
                 destinations={destinations}
                 onCreateDestination={createDestination}
                 onDeleteDestination={deleteDestination}
+                locations={locations}
+                getLocationsFor={getLocationsFor}
+                onSubmitOrderLocations={setOrderLocationsDraft}
               />
             }
           />

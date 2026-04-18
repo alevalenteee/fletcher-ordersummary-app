@@ -7,20 +7,26 @@ interface ProductOutputProps {
   packs: string;
   productData: Product[];
   manualDetails?: OrderProduct['manualDetails'];
+  isAwning?: boolean;
 }
 
 export const ProductOutput: React.FC<ProductOutputProps> = ({ 
   code, 
   packs, 
   productData,
-  manualDetails 
+  manualDetails,
+  isAwning
 }) => {
+  const awningSuffix = isAwning ? (
+    <span className="italic text-neutral-500 ml-1">(A)</span>
+  ) : null;
+
   if (manualDetails) {
     const packsNum = parseFloat(packs);
     
     // For Unknown type, always display as Units (for AI-analyzed unknown products)
     if (manualDetails.type === 'Unknown') {
-      return <strong>{packsNum} Units</strong>;
+      return <><strong>{packsNum} Units</strong>{awningSuffix}</>;
     }
     
     // For Batt or Roll types, display in Bales
@@ -28,26 +34,32 @@ export const ProductOutput: React.FC<ProductOutputProps> = ({
       if (manualDetails.packsPerBale) {
         const bales = packsNum / manualDetails.packsPerBale;
         return (
-          <strong>
-            {Number.isInteger(bales) ? bales : bales.toFixed(1)} Bales
-          </strong>
+          <>
+            <strong>
+              {Number.isInteger(bales) ? bales : bales.toFixed(1)} Bales
+            </strong>
+            {awningSuffix}
+          </>
         );
       } else {
         // If packsPerBale is not defined, assume 1 pack = 1 bale
-        return <strong>{packsNum} Bales</strong>;
+        return <><strong>{packsNum} Bales</strong>{awningSuffix}</>;
       }
     }
     
     // For Board or Pallet types, display in Units
-    return <strong>{packsNum} Units</strong>;
+    return <><strong>{packsNum} Units</strong>{awningSuffix}</>;
   }
 
   const output = convertToOutput(code, packs, productData);
   const unit = getOutputUnit(code, productData);
 
   return (
-    <strong>
-      {output} {unit}
-    </strong>
+    <>
+      <strong>
+        {output} {unit}
+      </strong>
+      {awningSuffix}
+    </>
   );
 }

@@ -1,35 +1,43 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Order, Product } from '@/types';
+import { Location, Order, Product } from '@/types';
 import { OrderTable } from './OrderTable';
 import { Button } from './ui/Button';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { FadeTransition } from './transitions/FadeTransition';
 import { LoadingModal } from './ui/LoadingModal';
-import { Printer, Edit2, Trash2, Trash, Download, Package } from 'lucide-react';
+import { Printer, Edit2, Trash2, Trash, Download, Package, MapPin } from 'lucide-react';
 import { downloadExcel } from '@/utils/export';
 import { sortOrdersByTime } from '@/utils/time';
 import { formatTrailerInfo } from '@/lib/utils';
+import { LocationsModal } from './locations';
 
 interface OrdersListProps {
   orders: Order[];
   productData: Product[];
   onEditOrder: (index: number) => void;
   onDeleteOrder: (index: number) => void;
+  locations?: Location[];
+  getLocationsFor?: (orderId: string | undefined) => Record<number, string>;
+  onSubmitOrderLocations?: (orderId: string, draft: Record<number, string>) => void;
 }
 
 export const OrdersList: React.FC<OrdersListProps> = ({
   orders,
   productData,
   onEditOrder,
-  onDeleteOrder
+  onDeleteOrder,
+  locations = [],
+  getLocationsFor = () => ({}),
+  onSubmitOrderLocations = () => {}
 }) => {
   const navigate = useNavigate();
   const [deletingIndex, setDeletingIndex] = React.useState<number | null>(null);
   const [showDeleteAllConfirmation, setShowDeleteAllConfirmation] = React.useState(false);
   const [isDeletingAll, setIsDeletingAll] = React.useState(false);
   const [updatingOrder, setUpdatingOrder] = React.useState<number | null>(null);
+  const [showLocationsModal, setShowLocationsModal] = React.useState(false);
 
   // Sort orders by time
   const sortedOrders = React.useMemo(() => {
@@ -119,6 +127,15 @@ export const OrdersList: React.FC<OrdersListProps> = ({
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export Excel</span>
+            </Button>
+            <Button
+              onClick={() => setShowLocationsModal(true)}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1.5 w-full sm:w-auto justify-center"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>Add locations</span>
             </Button>
             <Button
               onClick={() => navigate('/print')}
@@ -217,6 +234,8 @@ export const OrdersList: React.FC<OrdersListProps> = ({
               order={order}
               productData={productData}
               onUpdateProduct={() => handleUpdateProduct(sortedIndex)}
+              locations={locations}
+              locationsByIndex={getLocationsFor(order.id)}
             />
           </motion.div>
         </FadeTransition>
@@ -230,6 +249,16 @@ export const OrdersList: React.FC<OrdersListProps> = ({
         message="Are you sure you want to delete all orders? This action cannot be undone."
         confirmText="Delete All"
         cancelText="Cancel"
+      />
+
+      <LocationsModal
+        isOpen={showLocationsModal}
+        onClose={() => setShowLocationsModal(false)}
+        orders={orders}
+        productData={productData}
+        locations={locations}
+        getLocationsFor={getLocationsFor}
+        onSubmit={onSubmitOrderLocations}
       />
     </div>
   );

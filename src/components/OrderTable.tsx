@@ -1,5 +1,5 @@
 import React from 'react';
-import { Order, Product, OrderProduct } from '@/types';
+import { Location, Order, Product, OrderProduct } from '@/types';
 import { TableHeader } from './table/TableHeader';
 import { TableRow } from './table/TableRow';
 
@@ -7,12 +7,16 @@ interface OrderTableProps {
   order: Order;
   productData: Product[];
   onUpdateProduct?: (index: number, product: OrderProduct) => void;
+  locations?: Location[];
+  locationsByIndex?: Record<number, string>;
 }
 
 export const OrderTable: React.FC<OrderTableProps> = ({ 
   order, 
   productData,
-  onUpdateProduct 
+  onUpdateProduct,
+  locations = [],
+  locationsByIndex = {}
 }) => (
   <div className="overflow-x-auto print:overflow-visible">
     <table className="w-full border-collapse">
@@ -33,6 +37,8 @@ export const OrderTable: React.FC<OrderTableProps> = ({
               (updatedProduct) => onUpdateProduct(index, updatedProduct) : 
               undefined
             }
+            location={locationsByIndex[index]}
+            allLocations={locations}
           />
         ))}
       </tbody>

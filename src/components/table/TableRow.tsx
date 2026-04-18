@@ -1,5 +1,5 @@
 import React from 'react';
-import { OrderProduct, Product } from '@/types';
+import { Location, OrderProduct, Product } from '@/types';
 import { getProductDetails } from '@/utils';
 import { ProductName, ProductCode, ProductOutput, ProductDetailsForm } from '../product';
 import { formatRValue } from '@/utils';
@@ -9,15 +9,22 @@ interface TableRowProps {
   product: OrderProduct;
   productData: Product[];
   onUpdateProduct?: (product: OrderProduct) => void;
+  location?: string;
+  allLocations?: Location[];
 }
 
 export const TableRow: React.FC<TableRowProps> = ({ 
   product, 
   productData,
-  onUpdateProduct 
+  onUpdateProduct,
+  location,
+  allLocations = []
 }) => {
   const details = getProductDetails(product.productCode, productData);
   const [isEditing, setIsEditing] = useState(false);
+  const isAwning = !!location && allLocations.some(l => l.code === location && l.group === 'AWNING');
+  // AWNING items only show (A) in Output; the location code is omitted from Code.
+  const codeLocation = isAwning ? undefined : location;
 
   const handleSaveDetails = (manualDetails: OrderProduct['manualDetails']) => {
     if (onUpdateProduct) {
@@ -59,6 +66,7 @@ export const TableRow: React.FC<TableRowProps> = ({
           details={details}
           code={product.productCode}
           manualDetails={product.manualDetails}
+          location={codeLocation}
         />
       </td>
       <td className="hidden sm:table-cell px-3 py-3 truncate text-sm text-neutral-800 tabular-nums">{product.packsOrdered}</td>
@@ -68,6 +76,7 @@ export const TableRow: React.FC<TableRowProps> = ({
           packs={product.packsOrdered}
           productData={productData}
           manualDetails={product.manualDetails}
+          isAwning={isAwning}
         />
       </td>
 
@@ -114,6 +123,7 @@ export const TableRow: React.FC<TableRowProps> = ({
                 packs={product.packsOrdered}
                 productData={productData}
                 manualDetails={product.manualDetails}
+                isAwning={isAwning}
               />
             </div>
             <div className="text-xs text-neutral-500 tabular-nums">
@@ -121,6 +131,7 @@ export const TableRow: React.FC<TableRowProps> = ({
                 details={details}
                 code={product.productCode}
                 manualDetails={product.manualDetails}
+                location={codeLocation}
               />
             </div>
           </div>

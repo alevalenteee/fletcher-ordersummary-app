@@ -3,7 +3,7 @@ import { FileUpload } from '@/components/FileUpload';
 import { OrderForm } from '@/components/OrderForm';
 import { OrdersList } from '@/components/OrdersList';
 import { PDFAnalyzer } from '@/components/PDFAnalyzer';
-import { Destination, Order, Product, Profile } from '@/types';
+import { Destination, Location, Order, Product, Profile } from '@/types';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import { ProfileSelector } from '@/components/ProfileSelector';
 
@@ -27,6 +27,9 @@ interface HomePageProps {
   destinations?: Destination[];
   onCreateDestination?: (name: string) => Promise<Destination>;
   onDeleteDestination?: (id: string) => Promise<void>;
+  locations?: Location[];
+  getLocationsFor?: (orderId: string | undefined) => Record<number, string>;
+  onSubmitOrderLocations?: (orderId: string, draft: Record<number, string>) => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -48,7 +51,10 @@ export const HomePage: React.FC<HomePageProps> = ({
   onDeleteProfile = () => {},
   destinations = [],
   onCreateDestination = async () => { throw new Error('onCreateDestination not provided'); },
-  onDeleteDestination = async () => {}
+  onDeleteDestination = async () => {},
+  locations = [],
+  getLocationsFor = () => ({}),
+  onSubmitOrderLocations = () => {}
 }) => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -138,6 +144,9 @@ export const HomePage: React.FC<HomePageProps> = ({
         productData={productData}
         onEditOrder={onEditOrder}
         onDeleteOrder={onDeleteOrder}
+        locations={locations}
+        getLocationsFor={getLocationsFor}
+        onSubmitOrderLocations={onSubmitOrderLocations}
       />
     </>
   );

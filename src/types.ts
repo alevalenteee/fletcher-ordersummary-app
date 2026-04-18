@@ -33,6 +33,16 @@ export interface Destination {
   created_at?: string;
 }
 
+export type LocationGroup = 'AWNING' | 'GR2' | 'FABRICATION';
+
+export interface Location {
+  id: string;
+  code: string;
+  group: LocationGroup;
+  sort_order: number;
+  created_at?: string;
+}
+
 export interface Order {
   id?: string;
   destination: string;
