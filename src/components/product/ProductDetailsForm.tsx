@@ -1,5 +1,6 @@
 import React from 'react';
 import { OrderProduct } from '@/types';
+import { Button } from '../ui/Button';
 
 interface ProductDetailsFormProps {
   onSave: (details: NonNullable<OrderProduct['manualDetails']>) => void;
@@ -12,6 +13,9 @@ const PRODUCT_TYPES = [
   'Board',
   'Pallet'
 ];
+
+const inputClasses = 'w-full h-10 px-3 border border-neutral-200 rounded-lg bg-white text-sm text-neutral-900 placeholder:text-neutral-400 transition-colors focus:outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10';
+const labelClasses = 'block text-xs font-medium text-neutral-600 mb-1.5';
 
 export const ProductDetailsForm: React.FC<ProductDetailsFormProps> = ({
   onSave,
@@ -32,26 +36,26 @@ export const ProductDetailsForm: React.FC<ProductDetailsFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-4 bg-gray-50 p-4 rounded-lg">
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Product Type
+    <form onSubmit={handleSubmit} className="mt-4 space-y-3 bg-neutral-50 border border-neutral-200/70 p-4 rounded-lg">
+      <div>
+        <label className={labelClasses}>
+          Product type
         </label>
         <select
           value={type}
           onChange={(e) => setType(e.target.value as typeof type)}
           required
-          className="w-full p-2 border rounded-md text-sm"
+          className={inputClasses}
         >
-          <option value="">Select type...</option>
+          <option value="">Select type…</option>
           {PRODUCT_TYPES.map(t => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
+      <div>
+        <label className={labelClasses}>
           Description
         </label>
         <input
@@ -59,39 +63,40 @@ export const ProductDetailsForm: React.FC<ProductDetailsFormProps> = ({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           required
-          className="w-full p-2 border rounded-md text-sm"
+          className={inputClasses}
           placeholder="Enter product description"
         />
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
-          Packs per Bale
+      <div>
+        <label className={labelClasses}>
+          Packs per bale
         </label>
         <input
           type="number"
           value={packsPerBale}
           onChange={(e) => setPacksPerBale(e.target.value ? Number(e.target.value) : '')}
           min="1"
-          className="w-full p-2 border rounded-md text-sm"
-          placeholder="Optional - leave empty for single units"
+          className={inputClasses}
+          placeholder="Optional — leave empty for single units"
         />
       </div>
 
-      <div className="flex justify-end space-x-2 pt-2">
-        <button
+      <div className="flex justify-end gap-2 pt-1">
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={onCancel}
-          className="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          className="px-3 py-1.5 text-sm bg-black text-white rounded-md hover:bg-gray-800"
+          size="sm"
         >
-          Save Details
-        </button>
+          Save details
+        </Button>
       </div>
     </form>
   );

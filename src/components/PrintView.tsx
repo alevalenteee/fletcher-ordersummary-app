@@ -11,7 +11,6 @@ interface PrintViewProps {
 }
 
 export const PrintView: React.FC<PrintViewProps> = ({ productData, orders }) => {
-  const [fontSize, setFontSize] = React.useState(12);
   const [loading, setLoading] = React.useState(true);
   const [error] = React.useState<string | null>(null);
 
@@ -50,25 +49,23 @@ export const PrintView: React.FC<PrintViewProps> = ({ productData, orders }) => 
   }
 
   return (
-    <div className="bg-white screen:min-h-screen print:min-h-0 print:h-auto">
-      <div className="print-container" style={{ fontSize: `${fontSize}pt` }}>
-        <PrintHeader
-          fontSize={fontSize}
-          onFontSizeChange={setFontSize}
-        />
+    <div className="bg-neutral-50 screen:min-h-screen print:min-h-0 print:h-auto print:bg-white">
+      <div className="print-container">
+        <PrintHeader />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0">
-          <div className="hidden print:block print:mb-4">
-            <h1 className="text-2xl font-bold">Orders Summary</h1>
+          <div className="hidden print:block print:mb-5">
+            <h1 className="text-lg font-semibold tracking-tight text-neutral-900">
+              Orders Summary
+            </h1>
           </div>
-          
-          <div className="space-y-4 print:space-y-6">
-            {sortedOrders.map((order, index) => (
+
+          <div className="space-y-4 print:space-y-5">
+            {sortedOrders.map((order) => (
               <PrintOrder
                 key={`${order.id}-${order.manifestNumber}`}
                 order={order}
                 productData={productData}
-                isLast={index === sortedOrders.length - 1}
               />
             ))}
           </div>

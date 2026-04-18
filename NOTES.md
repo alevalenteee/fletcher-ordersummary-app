@@ -1,113 +1,201 @@
-# Session Notes — 2026-04-18
+# Session Notes — 2026-04-18 (later — UI facelift, print overhaul, CSV export)
 
-Notes on removing the Live Loading feature and making the delivery destinations list user-manageable.
+Continuation of the same day. Three deliverables plus minor polish. The app now runs on a consistent Linear/Vercel-style refined monochrome design system with Fletcher emerald as a subtle accent.
 
 ---
 
 ## 1. Summary
 
-Two discrete deliverables this session:
-
-- **Live Loading removed** — the `/live-loading` page, its entry-point `SavedOrdersModal`, the `View Orders` button on the home page, and all conditional layout plumbing were deleted. The Supabase `load_sessions` table is now orphaned but left in place per user choice (historical migrations intact).
-- **Destinations are now user-managed** — the hardcoded 11-entry depot list that previously lived duplicated in `OrderForm.tsx` and `gemini.ts` is now a Supabase-backed table with add/delete UI in a modal. The existing 11 names are seeded by the new migration.
-
----
-
-## 2. Feature removal — Live Loading
-
-### Context
-The feature had two UI entry points: the `View Orders` button on the home page (opened `SavedOrdersModal`), and every order card plus the `Live Loading` button inside that modal (all navigated to `/live-loading`). The modal had no use independent of Live Loading — `OrdersList` on the home page already shows every order with richer controls (edit, delete, print, export, bulk delete).
-
-### Deleted
-- `src/pages/LiveLoadingPage.tsx` (~42 KB, 1058 lines) — the entire tracker page, including Supabase `load_sessions` session management, progress persistence, stale-session cleanup, and the multi-step loading UI.
-- `src/components/SavedOrdersModal.tsx` (~6 KB) — the Live Loading gateway modal.
-
-### Edited
-- `src/App.tsx` — removed `LiveLoadingPage` import and the `<Route path="/live-loading">` block.
-- `src/pages/HomePage.tsx` — removed the `View Orders` button, `SavedOrdersModal` render, `showSavedOrders` state, and the now-unused `Button` and `Archive` imports. Also simplified the `ProfileSelector` card: the container used to be a two-child flex row (ProfileSelector + View Orders); it is now a single-child flex with `justify-center sm:justify-start` so the profile pill shrinks to its content width instead of stretching the full page.
-- `src/components/layout/MainLayout.tsx` — removed the `isLiveLoading` constant and its conditional branches (the `mb-6` toggle on the header, the `hidden` class on the page-title span, and the Live Loading case inside `getPageTitle()`).
-- `src/hooks/useRouteState.ts` — dropped `/live-loading` from `validRoutes`. Any stale `lastRoute` saved in localStorage pointing there is now automatically redirected to `/`.
-
-### Intentionally untouched
-- `supabase/migrations/20250205021053_teal_band.sql` and `20250205023552_turquoise_bush.sql` — the `load_sessions` table's create + RLS-disable migrations stay intact. The table is now orphaned; no app code touches it.
-- `react-router-dom`, `framer-motion`, `lucide-react` deps — still used elsewhere, left in `package.json`.
-
-### Verification
-- `rg -n "live-loading|LiveLoading|liveLoadingState|SavedOrdersModal|showSavedOrders"` across `src/` → no matches.
-- `ReadLints` on all edited files → no new errors.
-- `npm run build` → exit 0. Bundle went from ~321 KB gzip to **315.92 KB gzip** (~5 KB smaller).
+- **UI facelift across every screen.** Tailwind theme extended with design tokens; Inter wired in; brand emerald reserved for subtle accents (success pills, drag-active states, loading spinner). Every surface (cards, modals, buttons, inputs, tables, forms) rebuilt on the new tokens.
+- **Print view rewritten.** The browser print dialog previously rendered an Excel-style grid with hard `1px solid #000` cell borders. `PrintOrder.tsx` now mirrors the `OrdersList` card markup exactly, and `print.css` was cut from combative `!important` overrides to a minimal sheet that only does what Tailwind can't. `PrintSizeControl` deleted — it was non-functional due to CSS cascade.
+- **CSV export** for product data. Supabase's `product_data` table is now round-trippable via new `toCSV` / `downloadCSV` helpers + a Download button on the Product data card. Download → edit in Excel → upload is lossless (same headers `parseCSV` expects).
 
 ---
 
-## 3. Feature addition — Manageable destinations
+## 2. Design system tokens
 
-### Context
-The 11 depot names (`ARNDELL`, `BANYO`, `SALISBURY`, `DERRIMUT`, `MOONAH`, `JANDAKOT`, `GEPPS CROSS`, `BARON`, `SHEPPARTON`, `EE-FIT`, `CANBERRA`) lived hardcoded in **two** places that had to stay in sync:
+### Added to `tailwind.config.js`
 
-1. `src/components/OrderForm.tsx` — select dropdown options + the custom-fallback equality check when loading an existing order for edit.
-2. `src/lib/gemini.ts` — the prompt's "known locations" enumeration **and** the post-parse `knownDestinations` normalizer that collapses Gemini's extracted suburb (e.g. `"BARON WAREHOUSE"` → `"BARON"`).
-
-Adding a new depot without updating both places would silently break normalization on PDF imports.
-
-### Architectural decisions
-Locked in up front with the user:
-- **Storage**: Supabase table, globally shared across profiles/machines (matches how `orders`, `profiles`, `product_data` work; destinations are business data, not user preferences).
-- **UI**: small "Manage" affordance next to the Destination dropdown label opens a modal. Matches the `ProfileSelector` → `ProfileModal` pattern.
-
-### Added
-- `supabase/migrations/20260418000001_create_destinations.sql`
-  - `destinations` table: `id uuid PK`, `name text UNIQUE NOT NULL`, `created_at timestamptz`.
-  - Seeds the 11 original entries with `ON CONFLICT (name) DO NOTHING` so re-runs are safe.
-  - No RLS — matches every other table (`orders` and `load_sessions` RLS were explicitly disabled earlier; `profiles` and `product_data` never had any).
-- `src/hooks/useDestinations.ts` — modeled on `useProfiles`. `fetch`, `createDestination`, `deleteDestination`. Auto-seeds from code if the table exists but is empty (same safety-net pattern as `useProductData`). Normalizes names to `UPPERCASE` on create, with client-side duplicate check in addition to the DB unique constraint.
-- `src/components/DestinationsModal.tsx` — uses `ModalTransition` for the same drawer aesthetic as `ProfileModal`. Input + list + per-row delete with a confirmation overlay. Notes explicitly that existing orders are unaffected by deletion.
-- `src/types.ts` — new `Destination` interface (`id`, `name`, `created_at?`).
-
-### Edited
-- `src/App.tsx` — calls `useDestinations()`; threads `destinations` + `onCreateDestination` + `onDeleteDestination` into `HomePage`.
-- `src/pages/HomePage.tsx` — new props added to `HomePageProps`; forwards `destinations` to `PDFAnalyzer` and all three props to `OrderForm`.
-- `src/components/OrderForm.tsx` — hardcoded `DESTINATIONS` const deleted. Dropdown options now render from the `destinations` prop. A small `Settings2` "Manage" button sits next to the Destination label and opens `DestinationsModal`. Edit flow still falls back to the custom-destination input if the stored destination is no longer in the list, so no existing order is broken by a later deletion.
-- `src/components/PDFAnalyzer.tsx` — accepts `destinations` prop, passes `destinations.map(d => d.name)` into `analyzePDFContent`.
-- `src/lib/gemini.ts` — `analyzePDFContent(base64PDF, productData, destinations)` now takes the list as a third (required) parameter. The prompt's "known locations (…)" enumeration is built from it, and the post-parse `knownDestinations` local is derived from it too — sorted longest-first so a shorter overlapping entry (e.g. a future `BAR`) can't outrank a longer match (`BARON`). Small robustness improvement over the previous implementation, which used insertion order.
-
-### Data model note
-`orders.destination` is still a plain string on the `orders` table — there's no FK from `orders` to `destinations`. Deleting a destination therefore cannot break existing orders; they just keep whatever string they were saved with, and the edit flow auto-routes them into the custom-destination input if you ever re-open them.
-
-### Verification
-- `rg` for hardcoded names (`ARNDELL|BANYO|...`) across `src/` → only expected hits remain: the `DEFAULT_DESTINATIONS` fallback constant inside `useDestinations.ts`, and the now-dynamic `knownDestinations` local in `gemini.ts`.
-- `ReadLints` on all new/edited files → no errors.
-- `npm run build` → exit 0. Bundle at **317.28 KB gzip** (+~1.4 KB over the post-Live-Loading baseline — modal component + hook).
-
----
-
-## 4. One-time action required by the user
-
-The destinations migration must be applied to the production Supabase project before the UI is fully functional. Either:
-
-```bash
-supabase db push
+```js
+fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] }
+colors: { brand: { 50..700 } }                                // Fletcher emerald
+boxShadow: {
+  card:         '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.03)',
+  'card-hover': '0 4px 16px -4px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04)',
+  'btn-primary':'inset 0 1px 0 0 rgb(255 255 255 / 0.08)',
+}
+borderRadius: { card: '0.875rem' }                            // 14px
+transitionTimingFunction: { 'out-soft': 'cubic-bezier(0.22, 1, 0.36, 1)' }
 ```
 
-…or paste `supabase/migrations/20260418000001_create_destinations.sql` into the Supabase SQL editor. Until this runs, `useDestinations` will fail to fetch (table does not exist), the dropdown will only show "Other…", and the Manage modal will show an error state.
+### Added to `src/index.css`
+
+- `html { font-family: Inter, …; font-feature-settings: 'cv11','ss01','ss03'; text-rendering: optimizeLegibility; }` + antialiasing.
+- `body { @apply bg-neutral-50 text-neutral-900 }`.
+- Unified `:focus-visible` ring via `:where(button, a, input, select, textarea, [role=button])` — `ring-2 ring-neutral-900/15 ring-offset-2 ring-offset-white`.
+
+### Added to `index.html`
+
+- Google Fonts `<link>` for Inter weights 400/500/600/700 with preconnect hints to `fonts.googleapis.com` and `fonts.gstatic.com`.
 
 ---
 
-## 5. Notes on the earlier (2026-04-17) section below
+## 3. Components rebuilt on the new system
 
-The historical session notes preserved below are factually out of date in two spots after this session:
+| Area | File(s) | Key changes |
+|---|---|---|
+| Button primitive | `src/components/ui/Button.tsx`, `src/components/ui/Button/variants.ts` | Four variants (`default`, `outline`, `danger`, `ghost`) × three sizes (`sm`/`md`/`lg`). Explicit `font-sans` on the base. `ease-out-soft` transitions. Both implementations kept in lockstep. |
+| Layout header | `src/components/layout/MainLayout.tsx` | Tighter spacing, brand-emerald gradient title, subtle radial halo. |
+| Forms | `src/components/OrderForm.tsx`, `src/components/product/ProductDetailsForm.tsx` | Standardised `inputClasses` / `labelClasses` for consistent height/border/focus. All raw `<button>` usages replaced with `<Button>`. |
+| File upload | `src/components/FileUpload.tsx` | Collapsed to one header row: `[db icon] Product data  [count pill]  [Download] [Save as default]`. Helper paragraph and "CSV file" label deleted. |
+| PDF analyzer | `src/components/PDFAnalyzer.tsx` | Card chrome; brand-emerald drag-active state (`border-brand-400 bg-brand-50/50 ring-4 ring-brand-100/60`). |
+| Orders list | `src/components/OrdersList.tsx`, `src/components/table/*` | Card-per-order with empty state + `framer-motion` fade-in. Header row `bg-neutral-50 uppercase tracking-wide text-[11px] text-neutral-500`. Row dividers `border-t border-neutral-100`; zebra striping removed. |
+| Modals | `src/components/ui/{Modal,ConfirmationModal,LoadingModal}.tsx`, `ProfileModal.tsx`, `DestinationsModal.tsx` | Unified surface: `rounded-card shadow-card-hover` over a `backdrop-blur-sm` scrim. `lucide-react` throughout. |
+| Profile selector | `src/components/ProfileSelector.tsx` | Rounded-full pill, `shadow-card` → `shadow-card-hover` on hover, `role="button"` for a11y. |
 
-- §1 "Key files" lists `src/pages/LiveLoadingPage.tsx` — that file no longer exists.
-- The opening tagline ("…and track live loading") is no longer accurate.
-
-The content is otherwise preserved verbatim as a historical record of the Gemini SDK migration / repo cleanup.
+Consistency side-effects:
+- **`font-mono` eliminated project-wide.** Replaced with `tabular-nums` (Inter's `tnum` feature) so numeric columns align without the perceptual size drop of a monospace font at the same declared size. Affected: `TableRow` (Code/Packs/Output), `OrdersList` time stamp, `FileUpload` count pill, `OrderForm` product-code preview, `PrintOrder` time stamp.
+- **`font-bold` replaced with `font-semibold`** across all headings.
 
 ---
 
-# Session Notes — 2026-04-17
+## 4. Print view revamp
 
-Notes on the Gemini SDK upgrade, model change, and repo cleanup done in this session.
+### Problem
+Print preview looked like a spreadsheet — hard black cell grids, flattened backgrounds, `PrintOrder` rendered its own bespoke header markup, `<hr>` dividers between orders. Two rules in `src/styles/print.css` were doing the damage:
+- `th, td { border: 1px solid #000 }` painted the grid
+- `[class*="bg-"] { background: white !important }` flattened the subtle `bg-neutral-50` table header strip
+
+### Fix
+- **`src/styles/print.css`** cut to ~70 lines. Only does what Tailwind can't: `@page A4 1.2cm`, `print-color-adjust: exact` on `*`, `page-break-inside: avoid` on `.print-order`, `thead { display: table-header-group }` so headers repeat across page breaks, `[class*="shadow-"] { box-shadow: none }`, and the historical size/max-width resets. `html { font-size: 14px }` in print for proportional rem densification.
+- **`src/components/print/PrintOrder.tsx`** now mirrors the `OrdersList` card: `rounded-card border shadow-card p-6 print:p-4 print:shadow-none`, the destination · time header with `tabular-nums` on the time, and the manifest/transport/trailer info as a bullet-separated `text-xs text-neutral-500` row. `isLast` prop + `<hr>` deleted — `space-y-*` handles rhythm.
+- **`src/components/PrintView.tsx`** — preview now has `bg-neutral-50` on screen → `print:bg-white`. "Orders Summary" h1 rescaled to `text-lg font-semibold tracking-tight` to match the new scale.
+
+Because `TableHeader` and `TableRow` are shared between screen and print, the refresh flows through automatically. Print output is now visually identical to the screen card.
+
+### Also deleted
+- `src/components/print/PrintSizeControl.tsx` and its export in `src/components/print/index.ts`. Control was non-functional: Tailwind's explicit `text-*` utilities on child elements overrode the inherited inline `font-size` on the parent container. Not worth rewiring.
 
 ---
+
+## 5. CSV export (product data round-trip)
+
+### Context
+The product catalogue lives as a single jsonb `data` column on Supabase's `product_data` table — **there is no CSV file anywhere on disk**. Default seed from `src/data/defaultProducts.ts` only runs once if the table is empty. Without an export path, staff couldn't audit or bulk-edit products without hitting Supabase directly.
+
+### Added
+- **`src/utils/csv.ts`** — new `toCSV(products)` and `downloadCSV(products, filename?)` helpers next to existing `parseCSV`. RFC 4180 escaping for values with commas, quotes, CR, LF. UTF-8 BOM on the blob so Excel opens non-ASCII correctly. Default filename `product-data-YYYY-MM-DD.csv`. Emits the exact header row `parseCSV` reads (`Category,R-Value,NewCode,OldCode,PacksPerBale,Width`) and same column order — download → upload is a no-op round-trip.
+
+### UI
+- **`src/components/FileUpload.tsx`** — new `<Button variant="ghost" size="sm">Download</Button>` next to the count pill, always visible when `productCount > 0`. "Save as default" remains to its right, still conditional on `hasChanges`.
+
+---
+
+## 6. Minor polish
+
+- **`OrderForm` Manage button** → "Manage Destinations". Typography matched to the adjacent `<label>`: `text-xs font-medium text-neutral-600 hover:text-neutral-900`.
+- **Button component font-family explicit** — added `font-sans` to both `Button.tsx` and `Button/variants.ts` base classes. No visual change under normal inheritance; guard against any future parent overriding `font-family`.
+
+---
+
+## 7. Verification
+
+- `ReadLints` across every edited file → no errors.
+- `npm run build` → exit 0. Bundle at **~318 KB gzip** (~1 KB over post-destinations baseline for the CSV helpers + Download button + refreshed components).
+- Print preview manually verified — order cards render identically to the `OrdersList` screen layout. No harsh cell borders, subtle row dividers intact, `bg-neutral-50` header strip prints.
+- CSV round-trip verified — `downloadCSV(productData)` → reimport via `FileUpload` → `Save as default` yields identical jsonb payload.
+
+---
+
+# Typography Reference
+
+Current state of all typography in the app. Update this section when the system changes.
+
+### Font family
+
+- **Primary:** `Inter` (Google Fonts; weights 400 / 500 / 600 / 700)
+- **Fallback stack:** `ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`
+- Loaded via `<link>` in `index.html` with `preconnect` hints. Applied on `html` in `src/index.css`. Mapped to Tailwind's `font-sans` in `tailwind.config.js` — so `font-sans` is technically redundant on most elements (they inherit from `html`) but is applied explicitly on the `Button` primitive as a safety net.
+- OpenType features enabled globally: `'cv11'` (single-storey `a`), `'ss01'`, `'ss03'`. `-webkit-font-smoothing: antialiased` + `text-rendering: optimizeLegibility`.
+- **`font-mono` and `font-bold` are not used anywhere.** Numeric alignment uses `tabular-nums`; heavy headings use `font-semibold`.
+
+### Size scale
+
+| Utility | CSS | Typical weight | Role / examples |
+|---|---|---|---|
+| `text-2xl sm:text-[2rem]` | 24 / 32px | `font-semibold tracking-tight leading-tight` | Global app title (`MainLayout` h1) |
+| `text-lg` | 18px | `font-semibold tracking-tight` | Modal headings, individual order card titles (`OrdersList`, `PrintOrder`), print-view h1 |
+| `text-base` | 16px | `font-semibold tracking-tight` | Card/section headers — "Product data", "Orders", "Upload PDFs" |
+| `text-sm` | 14px | regular or `font-medium` | Body copy, form inputs, status messages, file-list items, profile name in pill |
+| `text-xs` | 12px | regular or `font-medium` | Form labels, pill contents, secondary meta rows, helper/error text, small buttons (via `size="sm"`) |
+| `text-[11px]` | 11px | `font-medium tracking-wide uppercase` | Table column labels only |
+
+### Weights
+
+| Class | Value | Role |
+|---|---|---|
+| `font-normal` | 400 | Body copy, decorative punctuation, separator glyphs |
+| `font-medium` | 500 | Form labels, inline emphasis on meta values, button labels (default), subtle UI accents |
+| `font-semibold` | 600 | All headings (`h1`–`h3`), emphasis on numbers in pills |
+| `font-bold` | 700 | Reserved — **not in use** |
+
+### Colors (neutral scale)
+
+| Class | Role |
+|---|---|
+| `text-neutral-900` | Primary headings, main content |
+| `text-neutral-800` | Secondary heading / emphasized body; `outline`-variant button label |
+| `text-neutral-700` | Meta values inside muted rows (manifest/transport/trailer numbers), file-list item text |
+| `text-neutral-600` | Form labels, subtle button text (Download, Manage Destinations) |
+| `text-neutral-500` | Secondary/muted body text, empty-state helper copy |
+| `text-neutral-400` | Decorative separators (" · "), dim keywords ("Manifest" in meta row) |
+| `text-neutral-300` | `•` bullet separators between meta chunks |
+
+### Accents (Fletcher brand emerald)
+
+Used sparingly, never for headings or primary actions.
+
+| Class | Role |
+|---|---|
+| `bg-brand-50 text-brand-700 border-brand-200/60` | Success/info pill surface (product count, "success" status messages, active profile marker) |
+| `text-brand-600` | Small check icons inside success pills |
+| `border-brand-400 bg-brand-50/50 ring-4 ring-brand-100/60` | PDF dropzone drag-active state |
+| `text-brand-600` on `Loader2` | `LoadingModal` spinner |
+
+### Letter spacing
+
+| Class | Where |
+|---|---|
+| `tracking-tight` | All headings (paired with `font-semibold`) |
+| `tracking-wide` | Uppercase mini-labels (`text-[11px]` table headers, `text-xs` modal section eyebrows like "Current profile", "Available profiles", "Add destination") |
+| — | Body text uses browser default |
+
+### Numeric alignment — `tabular-nums`
+
+**Always** use on numeric columns and timestamps. Inter's `tnum` OpenType feature gives same-width digits while keeping the sans-serif visual weight of surrounding text — no perceptual size drop like `font-mono`.
+
+Currently applied in:
+- `TableRow` — Code, Packs, Output columns (desktop and mobile)
+- `OrdersList` — order card time stamp
+- `PrintOrder` — order card time stamp
+- `FileUpload` — product count pill
+- `OrderForm` — product code preview
+
+### Icons (lucide-react)
+
+| Size | Where |
+|---|---|
+| `w-3 h-3` | Inside tight pills |
+| `w-3.5 h-3.5` | Small (`size="sm"`) button glyphs |
+| `w-4 h-4` | Default inline icon (section headers, input affordances) |
+| `w-5 h-5` | Larger CTAs (dropzone, modal primary action) |
+
+Color inherits from the parent `text-*` class — no explicit `stroke` overrides anywhere.
+
+### Transitions
+
+All hover/focus state changes use the custom `ease-out-soft` timing function (`cubic-bezier(0.22, 1, 0.36, 1)`) with `duration-150`. Defined in `tailwind.config.js`, referenced from the `Button` primitive's base class and a few individual components that need matching animation.
+
 
 ## 1. Codebase at a glance
 
@@ -139,129 +227,9 @@ VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 VITE_GEMINI_API_KEY=...
 ```
-
 A populated template lives in `.env.example`.
 
----
 
-## 2. Problems diagnosed & fixed today
-
-### Problem A — Gemini rate limiting on `gemini-2.5-flash`
-
-- App was on `gemini-2.5-flash` with no retry/backoff.
-- `PDFAnalyzer` loops through PDFs back-to-back with no delay.
-- On the free tier, `gemini-2.5-flash` is mid-pack on RPM/RPD; bursts trigger 429.
-- Researched free-tier quotas — recommended moving to `gemini-2.5-flash-lite` (higher RPM/RPD) or newer 3.x previews.
-
-### Problem B — `404 "model not found for API version v1"` after updating model string
-
-Error seen in production:
-
-```
-models/gemini-3.1-flash-lite-preview is not found for API version v1
-```
-
-**Root cause:** the installed `@google/generative-ai@^0.2.0` SDK calls the **`v1`** Generative Language API surface. `gemini-3.1-flash-lite-preview` is only registered on **`v1beta`**.
-
-**Verification via ListModels:**
-
-- Authenticated with the API key from the browser DevTools console (the key has HTTP referrer restrictions so shell calls were blocked).
-- `v1beta`: returned 36 generateContent models including `gemini-3.1-flash-lite-preview`.
-- `v1`: returned 7 models (2.0 / 2.5 family only).
-
-**Fix — SDK migration:**
-
-- Uninstalled `@google/generative-ai`.
-- Installed `@google/genai@^1.50.1` (current official successor, defaults to `v1beta`).
-- Rewrote `src/lib/gemini.ts`:
-  - `new GoogleGenAI({ apiKey })` instead of `new GoogleGenerativeAI(key)`
-  - `ai.models.generateContent({ model, contents })` with explicit `{ text }` and `{ inlineData }` parts
-  - `response.text` (property) instead of `response.text()` (method)
-- Pulled the model string into a top-level constant (`GEMINI_MODEL`) for easy swapping.
-
-### Problem C — `403` with referrer restriction on the API key
-
-When testing ListModels from shell, hit `API_KEY_HTTP_REFERRER_BLOCKED`.
-
-**Confirmed** the Google Cloud key restriction allowlists `https://fletcher-ordersummary.netlify.app/`. The key is correctly locked to production. The new SDK request path validated against that referrer returned **200 OK** with full `gemini-3.1-flash-lite-preview` metadata (1M input / 64K output, `generateContent` supported, `thinking: true` by default).
-
-### Problem D — `503 UNAVAILABLE "high demand"` after deploy
-
-- Not a quota issue (would be 429).
-- Server-side capacity pressure on the preview model. Preview models get less provisioned capacity than stable ones.
-- **Not fixed this session** — kept in outstanding work. Recommended approach: retry with exponential backoff, with optional fallback to `gemini-2.5-flash-lite`.
-
-### Problem E — Missing deps / stale config after fresh clone
-
-Audit of the repo surfaced:
-
-- No `.env` file (expected, gitignored) and no `.env.example` either → blind cloning breaks at startup.
-- ESLint flat config (`eslint.config.js`) referenced packages not declared in `package.json` — `npm run lint` failed with "Cannot find module".
-- Several dead deps and duplicate component files.
-- Leftover scaffolding from bolt.new / StackBlitz.
-- Malformed inline SVG favicon.
-
-See the cleanup commit for the full fix.
-
----
-
-## 3. What changed on disk (shipped in commit `36f5e43`)
-
-### Added
-- `.env.example` — template with the three `VITE_*` keys (empty values).
-- `.nvmrc` — pinned to Node `22` (matching Netlify's default).
-
-### Edited
-- `package.json`:
-  - `"engines": { "node": ">=20" }`
-  - Lint script dropped `--ext ts,tsx` (ESLint 10 flat config doesn't accept it).
-  - Removed: `pdf-parse`, `uuid`, `@types/uuid` (unused).
-  - Removed: `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser` (legacy).
-  - Added: `eslint@^10`, `@eslint/js`, `globals`, `typescript-eslint`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`.
-- `package-lock.json` — regenerated.
-- `src/lib/gemini.ts` — migrated from `@google/generative-ai` to `@google/genai`; model constant at top; model set to `gemini-3.1-flash-lite-preview`.
-- `index.html` — fixed malformed inline SVG favicon (third `<path>` had a missing separator, rendered broken in tabs). Replaced with clean Lucide `check-check` glyph, black stroke (data URI SVGs have no CSS context for `currentColor`).
-- `README.md` — step 3 now references `.env.example` + a `cp` command.
-
-### Deleted
-- `src/components/HomePage.tsx` (duplicate — `src/pages/HomePage.tsx` is the one used by `App.tsx`).
-- `src/components/PrintOrder.tsx` (duplicate — `src/components/print/PrintOrder.tsx` is used).
-- `src/components/PrintSizeControl.tsx` (duplicate — `src/components/print/PrintSizeControl.tsx` is used).
-- `home/project/netlify.toml` (duplicate of root `netlify.toml`, StackBlitz cruft).
-- `.bolt/config.json`, `.bolt/prompt` (bolt.new scaffolding).
-
----
-
-## 4. Deploy status
-
-- `main` at `36f5e43`, pushed to `origin`.
-- Netlify will auto-build from the push. Build verified locally: `npm run build` passes with identical bundle size.
-- Runtime flow confirmed prior to cleanup: PDF → `gemini-3.1-flash-lite-preview` via `v1beta` → 200 OK.
-
-### Netlify env vars (must be set on the Netlify side, already were)
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_GEMINI_API_KEY`
-
-### Gemini key restrictions (Google Cloud Console)
-- **HTTP referrers:** `https://fletcher-ordersummary.netlify.app/*` (and whatever preview branches are used)
-- **API restrictions:** Generative Language API
-
----
-
-## 5. Outstanding / future work (not done this session)
-
-| # | Item | Notes |
-|---|---|---|
-| 1 | **Retry + fallback in `src/lib/gemini.ts`** | Wrap `generateContent` with exponential backoff on `429`/`500`/`502`/`503`/`504`, plus fallback to `gemini-2.5-flash-lite` on terminal 503. Biggest quality-of-life win given preview-model flakiness. |
-| 2 | **Pre-existing lint errors in app code** | `npm run lint` now runs and reports 25 issues (21 errors, 4 warnings) in `src/hooks/*`, `src/pages/*`, `src/lib/gemini.ts`, `src/utils/*`. All pre-existing code smells (`react-hooks/exhaustive-deps`, `no-explicit-any`, `set-state-in-effect`, etc.). Cleanup left them alone per scope. |
-| 3 | **Move `VITE_GEMINI_API_KEY` behind a serverless proxy** | Currently the key is shipped to the browser (any `VITE_*` var is public). Referrer restriction is the only defense. A Netlify Function proxying `generateContent` would let the key stay server-side. |
-| 4 | **Bundle size** | Single JS chunk is ~1.1 MB (321 KB gzipped). Vite flagged it. Not urgent, but `manualChunks` or route-level dynamic imports would split it. |
-| 5 | **Consolidate `react-transition-group` into framer-motion** | Only used in `src/components/transitions/FadeTransition.tsx`. Drops one dep. |
-| 6 | **Thinking budget on Gemini call** | `gemini-3.1-flash-lite-preview` has `thinking: true` by default — higher latency/tokens. For simple PDF extraction, `config.thinkingConfig.thinkingBudget: 0` may be faster/cheaper. |
-| 7 | **`tsconfig.json` consolidation** | Root currently `extends` `tsconfig.app.json` directly; typical Vite template uses `references` instead. Works as-is. |
-
----
 
 ## 6. Quick-reference commands
 

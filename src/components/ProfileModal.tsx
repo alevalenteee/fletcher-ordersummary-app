@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Pencil, Star, Trash2 } from 'lucide-react';
 import { Profile } from '@/types';
 import { ProfileAvatar } from './ProfileAvatar';
 import { ModalTransition } from './transitions/ModalTransition';
+import { Button } from './ui/Button';
+import { cn } from '@/lib/utils';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -15,6 +18,9 @@ interface ProfileModalProps {
   onDeleteProfile: (id: string) => void;
 }
 
+const inputClasses = 'w-full h-10 px-3 border border-neutral-200 rounded-lg bg-white text-sm text-neutral-900 placeholder:text-neutral-400 transition-colors focus:outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10';
+const labelClasses = 'block text-xs font-medium text-neutral-600 mb-1.5';
+
 export const ProfileModal: React.FC<ProfileModalProps> = ({
   isOpen,
   onClose,
@@ -26,266 +32,268 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onDeleteProfile
 }) => {
   const [newProfileName, setNewProfileName] = useState('');
-  const [newProfileColor, setNewProfileColor] = useState('#3B82F6'); // Default blue
+  const [newProfileColor, setNewProfileColor] = useState('#3B82F6');
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [profileToDelete, setProfileToDelete] = useState<Profile | null>(null);
-  
-  // Common colors for profile avatars
+
   const colorOptions = [
-    '#3B82F6', // Blue
-    '#EF4444', // Red
-    '#10B981', // Green
-    '#F59E0B', // Amber
-    '#8B5CF6', // Purple
-    '#EC4899', // Pink
-    '#06B6D4', // Cyan
-    '#F97316'  // Orange
+    '#3B82F6',
+    '#EF4444',
+    '#10B981',
+    '#F59E0B',
+    '#8B5CF6',
+    '#EC4899',
+    '#06B6D4',
+    '#F97316'
   ];
-  
+
   const handleCreateProfile = () => {
     if (!newProfileName.trim()) return;
-    
+
     onCreateProfile({
       name: newProfileName.trim(),
       color: newProfileColor,
       is_default: false
     });
-    
-    // Reset form
+
     setNewProfileName('');
     setNewProfileColor('#3B82F6');
   };
-  
+
   const handleUpdateProfile = () => {
     if (!editingProfile || !editingProfile.name.trim()) return;
-    
+
     onUpdateProfile(editingProfile.id, {
       name: editingProfile.name.trim(),
       color: editingProfile.color
     });
-    
+
     setEditingProfile(null);
   };
-  
+
   const handleDeleteProfile = () => {
     if (!profileToDelete) return;
-    
+
     onDeleteProfile(profileToDelete.id);
     setProfileToDelete(null);
   };
-  
+
   const handleMakeDefault = (id: string) => {
     onUpdateProfile(id, { is_default: true });
   };
-  
+
   return (
     <ModalTransition isOpen={isOpen} onClose={onClose} maxWidth="600px">
       <div className="p-6 pt-4 md:pt-6">
-        <h2 className="text-2xl font-semibold mb-6">Profile Manager</h2>
-        
-        {/* Current Profile */}
+        <h2 className="text-lg font-semibold tracking-tight text-neutral-900 mb-6">Profile manager</h2>
+
         {currentProfile && (
           <div className="mb-6">
-            <h3 className="text-lg font-medium mb-2">Current Profile</h3>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Current profile</h3>
+            <div className="flex items-center gap-3 p-3 bg-neutral-50 border border-neutral-200/70 rounded-lg">
               <ProfileAvatar profile={currentProfile} size="lg" />
               <div>
-                <p className="font-medium">{currentProfile.name}</p>
-                <p className="text-sm text-gray-500">
-                  {currentProfile.is_default ? 'Default Profile' : 'Standard Profile'}
+                <p className="font-medium text-sm text-neutral-900">{currentProfile.name}</p>
+                <p className="text-xs text-neutral-500">
+                  {currentProfile.is_default ? 'Default profile' : 'Standard profile'}
                 </p>
               </div>
             </div>
           </div>
         )}
-        
-        {/* Available Profiles */}
+
         <div className="mb-6">
-          <h3 className="text-lg font-medium mb-2">Available Profiles</h3>
+          <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Available profiles</h3>
           <div className="max-h-[240px] overflow-y-auto overflow-x-hidden scrollbar-hide">
-            <div className="flex flex-col gap-3 pr-2">
-              {profiles.map(profile => (
-                <motion.div
-                  key={profile.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border-2 transition-colors duration-200 ${
-                    currentProfile?.id === profile.id 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50 cursor-pointer'
-                  }`}
-                  onClick={() => {
-                    if (currentProfile?.id !== profile.id) {
-                      onSwitchProfile(profile.id);
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <ProfileAvatar profile={profile} />
-                    <div>
-                      <p className="font-medium">{profile.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {profile.is_default ? 'Default' : 'Standard'}
-                      </p>
+            <div className="flex flex-col gap-2 pr-2">
+              {profiles.map(profile => {
+                const isCurrent = currentProfile?.id === profile.id;
+                return (
+                  <motion.div
+                    key={profile.id}
+                    layout
+                    className={cn(
+                      'flex items-center justify-between p-3 rounded-lg border transition-colors duration-150',
+                      isCurrent
+                        ? 'border-neutral-900 bg-neutral-50 shadow-card'
+                        : 'border-neutral-200/70 hover:border-neutral-300 hover:bg-neutral-50/60 cursor-pointer'
+                    )}
+                    onClick={() => {
+                      if (!isCurrent) {
+                        onSwitchProfile(profile.id);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <ProfileAvatar profile={profile} />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-neutral-900 truncate">{profile.name}</p>
+                        <p className="text-[11px] text-neutral-500">
+                          {profile.is_default ? 'Default' : 'Standard'}
+                          {isCurrent && <span className="text-brand-600 ml-1.5">· Active</span>}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col gap-1">
+
+                    <div className="flex items-center gap-0.5 shrink-0">
                       <button
-                        className="p-1 text-gray-500 hover:text-gray-700"
+                        className="p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-md transition-colors"
                         onClick={(e) => {
-                          e.stopPropagation(); // Prevent profile switching
+                          e.stopPropagation();
                           setEditingProfile(profile);
                         }}
                         title="Edit"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      
+
                       {!profile.is_default && (
                         <>
                           <button
-                            className="p-1 text-yellow-500 hover:text-yellow-600"
+                            className="p-1.5 text-neutral-400 hover:text-amber-500 hover:bg-amber-50 rounded-md transition-colors"
                             onClick={(e) => {
-                              e.stopPropagation(); // Prevent profile switching
+                              e.stopPropagation();
                               handleMakeDefault(profile.id);
                             }}
-                            title="Make Default"
+                            title="Make default"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                            </svg>
+                            <Star className="w-3.5 h-3.5" />
                           </button>
-                          
+
                           <button
-                            className="p-1 text-red-500 hover:text-red-600"
+                            className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40 disabled:pointer-events-none"
                             onClick={(e) => {
-                              e.stopPropagation(); // Prevent profile switching
+                              e.stopPropagation();
                               setProfileToDelete(profile);
                             }}
                             title="Delete"
                             disabled={profiles.length <= 1}
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
                       )}
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
         </div>
-        
-        {/* Create New Profile */}
+
         {!editingProfile && (
           <div className="mb-6">
-            <h3 className="text-lg font-medium mb-2">Create New Profile</h3>
+            <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Create new profile</h3>
             <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                value={newProfileName}
-                onChange={(e) => setNewProfileName(e.target.value)}
-                placeholder="Profile Name"
-                className="p-2 border border-gray-300 rounded-lg bg-white"
-              />
-              
               <div>
-                <label className="block text-sm mb-1">Color</label>
+                <label className={labelClasses}>Profile name</label>
+                <input
+                  type="text"
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  placeholder="e.g. Morning shift"
+                  className={inputClasses}
+                />
+              </div>
+
+              <div>
+                <label className={labelClasses}>Color</label>
                 <div className="flex flex-wrap gap-2">
                   {colorOptions.map(color => (
                     <button
                       key={color}
-                      className={`w-8 h-8 rounded-full ${newProfileColor === color ? 'ring-2 ring-offset-2 ring-blue-500' : ''}`}
+                      type="button"
+                      className={cn(
+                        'w-7 h-7 rounded-full transition-transform hover:scale-110 active:scale-95',
+                        newProfileColor === color && 'ring-2 ring-offset-2 ring-neutral-900'
+                      )}
                       style={{ backgroundColor: color }}
                       onClick={() => setNewProfileColor(color)}
+                      aria-label={`Color ${color}`}
                     />
                   ))}
                 </div>
               </div>
-              
-              <button
-                className="mt-2 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+
+              <Button
                 onClick={handleCreateProfile}
                 disabled={!newProfileName.trim()}
+                className="mt-1 w-full sm:w-auto sm:self-start"
               >
-                Create Profile
-              </button>
+                Create profile
+              </Button>
             </div>
           </div>
         )}
-        
-        {/* Edit Profile */}
+
         {editingProfile && (
           <div className="mb-6">
-            <h3 className="text-lg font-medium mb-2">Edit Profile</h3>
+            <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Edit profile</h3>
             <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                value={editingProfile.name}
-                onChange={(e) => setEditingProfile({...editingProfile, name: e.target.value})}
-                placeholder="Profile Name"
-                className="p-2 border border-gray-300 rounded-lg bg-white"
-              />
-              
               <div>
-                <label className="block text-sm mb-1">Color</label>
+                <label className={labelClasses}>Profile name</label>
+                <input
+                  type="text"
+                  value={editingProfile.name}
+                  onChange={(e) => setEditingProfile({ ...editingProfile, name: e.target.value })}
+                  placeholder="Profile name"
+                  className={inputClasses}
+                />
+              </div>
+
+              <div>
+                <label className={labelClasses}>Color</label>
                 <div className="flex flex-wrap gap-2">
                   {colorOptions.map(color => (
                     <button
                       key={color}
-                      className={`w-8 h-8 rounded-full ${editingProfile.color === color ? 'ring-2 ring-offset-2 ring-blue-500' : ''}`}
+                      type="button"
+                      className={cn(
+                        'w-7 h-7 rounded-full transition-transform hover:scale-110 active:scale-95',
+                        editingProfile.color === color && 'ring-2 ring-offset-2 ring-neutral-900'
+                      )}
                       style={{ backgroundColor: color }}
-                      onClick={() => setEditingProfile({...editingProfile, color})}
+                      onClick={() => setEditingProfile({ ...editingProfile, color })}
+                      aria-label={`Color ${color}`}
                     />
                   ))}
                 </div>
               </div>
-              
+
               <div className="flex gap-2">
-                <button
-                  className="flex-1 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                <Button
+                  variant="outline"
                   onClick={() => setEditingProfile(null)}
+                  className="flex-1"
                 >
                   Cancel
-                </button>
-                <button
-                  className="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                </Button>
+                <Button
                   onClick={handleUpdateProfile}
                   disabled={!editingProfile.name.trim()}
+                  className="flex-1"
                 >
-                  Save Changes
-                </button>
+                  Save changes
+                </Button>
               </div>
             </div>
           </div>
         )}
-        
-        {/* Delete Confirmation */}
+
         {profileToDelete && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-semibold mb-4">Delete Profile</h3>
-              <p className="mb-6">
-                Are you sure you want to delete the profile "{profileToDelete.name}"? This action cannot be undone.
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-card shadow-card-hover p-6 max-w-md w-full">
+              <h3 className="text-base font-semibold tracking-tight text-neutral-900 mb-2">Delete profile</h3>
+              <p className="text-sm text-neutral-600 mb-6">
+                Are you sure you want to delete the profile <strong className="text-neutral-900">"{profileToDelete.name}"</strong>? This action cannot be undone.
               </p>
-              <div className="flex gap-3">
-                <button
-                  className="flex-1 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                  onClick={() => setProfileToDelete(null)}
-                >
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setProfileToDelete(null)}>
                   Cancel
-                </button>
-                <button
-                  className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-                  onClick={handleDeleteProfile}
-                >
+                </Button>
+                <Button variant="danger" onClick={handleDeleteProfile}>
                   Delete
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -293,4 +301,4 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       </div>
     </ModalTransition>
   );
-}; 
+};

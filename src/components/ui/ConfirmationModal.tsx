@@ -28,14 +28,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       onClose={onClose}
       title={title}
     >
-      <div className="flex items-start gap-4 mb-6">
-        <div className="p-2 bg-red-100 rounded-full">
-          <AlertTriangle className="w-6 h-6 text-red-600" />
+      <div className="flex items-start gap-3 mb-6">
+        <div className="p-2 bg-red-50 rounded-full border border-red-100 shrink-0">
+          <AlertTriangle className="w-4 h-4 text-red-600" />
         </div>
-        <p className="text-gray-600 mt-1">{message}</p>
+        <p className="text-sm text-neutral-600 mt-1.5">{message}</p>
       </div>
-      
-      <div className="flex justify-end gap-3">
+
+      <div className="flex justify-end gap-2">
         <Button
           variant="outline"
           onClick={onClose}

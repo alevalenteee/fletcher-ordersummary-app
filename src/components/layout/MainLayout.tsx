@@ -28,17 +28,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   };
   
   return (
-    <div className="screen:min-h-screen print:min-h-0 print:h-auto bg-gray-100 print:bg-white">
+    <div className="screen:min-h-screen print:min-h-0 print:h-auto bg-neutral-50 print:bg-white">
       {profilesLoading && <LoadingModal isOpen={true} message="Loading profiles..." />}
-      
-      <header className="bg-white border-b border-gray-200 py-4 sm:py-6 mb-6 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+      <header className="relative bg-white border-b border-neutral-200/70 py-5 sm:py-7 mb-8 print:hidden overflow-hidden">
+        {/* Subtle brand halo — barely perceptible, only behind the header */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-24 h-48 bg-[radial-gradient(ellipse_at_center,_theme(colors.brand.100)_0%,_transparent_65%)] opacity-60"
+        />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center">
-            <h1 className="text-center text-2xl sm:text-4xl font-bold tracking-tight">
-              <span className="block sm:inline bg-gradient-to-r from-emerald-400 via-green-500 to-teal-600 animate-gradient bg-clip-text text-transparent">
+            <h1 className="text-center text-2xl sm:text-[2rem] font-semibold tracking-tight leading-tight">
+              <span className="block sm:inline bg-gradient-to-r from-brand-400 via-brand-500 to-brand-600 animate-gradient bg-clip-text text-transparent">
                 Fletcher Insulation
               </span>
-              <span className="block sm:inline text-black mt-1 sm:mt-0 sm:ml-2">
+              <span className="block sm:inline text-neutral-900 mt-1 sm:mt-0 sm:ml-2 font-medium">
                 {getPageTitle()}
               </span>
             </h1>
@@ -46,7 +51,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 print:p-0">
         <PageTransition location={location.pathname}>
           {children}
         </PageTransition>

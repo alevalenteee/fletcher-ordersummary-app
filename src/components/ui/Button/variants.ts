@@ -2,39 +2,45 @@ import { cva } from 'class-variance-authority';
 
 export const buttonVariants = cva(
   [
-    'inline-flex items-center justify-center rounded-md font-medium',
-    'transition-all duration-200',
-    'transform hover:-translate-y-0.5 active:translate-y-0',
-    'active:scale-95',
-    'focus:outline-none focus:ring-2 focus:ring-offset-2',
-    'disabled:opacity-50 disabled:pointer-events-none'
+    'inline-flex items-center justify-center rounded-lg font-sans font-medium',
+    'transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out-soft',
+    'active:scale-[0.98]',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+    'disabled:opacity-40 disabled:pointer-events-none',
+    'whitespace-nowrap',
   ].join(' '),
   {
     variants: {
       variant: {
         default: [
-          'bg-black text-white',
-          'hover:bg-gray-800',
-          'active:bg-gray-900',
-          'focus:ring-gray-500'
+          'bg-neutral-900 text-white shadow-btn-primary',
+          'hover:bg-neutral-800',
+          'active:bg-black',
+          'focus-visible:ring-neutral-900/25',
         ].join(' '),
         outline: [
-          'border border-gray-300 bg-white text-gray-700',
-          'hover:bg-gray-50',
-          'active:bg-gray-100',
-          'focus:ring-gray-400'
+          'border border-neutral-200 bg-white text-neutral-800',
+          'hover:bg-neutral-50 hover:border-neutral-300',
+          'active:bg-neutral-100',
+          'focus-visible:ring-neutral-900/15',
         ].join(' '),
         danger: [
-          'bg-red-600 text-white',
+          'bg-red-600 text-white shadow-btn-primary',
           'hover:bg-red-700',
           'active:bg-red-800',
-          'focus:ring-red-500'
+          'focus-visible:ring-red-500/30',
+        ].join(' '),
+        ghost: [
+          'text-neutral-600 bg-transparent',
+          'hover:bg-neutral-100 hover:text-neutral-900',
+          'active:bg-neutral-200',
+          'focus-visible:ring-neutral-900/15',
         ].join(' '),
       },
       size: {
-        sm: 'px-3 py-1.5 text-sm',
-        md: 'px-4 py-2',
-        lg: 'px-6 py-3 text-lg',
+        sm: 'h-8 px-3 text-xs gap-1.5',
+        md: 'h-10 px-4 text-sm gap-2',
+        lg: 'h-12 px-6 text-base gap-2',
       },
     },
     defaultVariants: {

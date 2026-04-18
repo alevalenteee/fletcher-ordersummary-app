@@ -1,24 +1,73 @@
-/* Print styles */
+/* Print styles — kept intentionally minimal.
+ *
+ * The goal is that screen and print render from the same Tailwind class
+ * strings. This file only handles things Tailwind utilities cannot:
+ *   - @page size and margin
+ *   - Preserving background colors / borders across the print boundary
+ *     (print-color-adjust: exact)
+ *   - Preventing orders from being split across pages
+ *   - Stripping things that make no sense in print (shadows, min-heights,
+ *     max-width centering containers)
+ */
+
 @media print {
-  /* Page setup */
   @page {
     size: A4;
-    margin: 1cm;
+    margin: 1.2cm;
   }
 
-  /* Reset body */
+  html {
+    background: white !important;
+    /* Slightly smaller rem so Tailwind's rem-based sizes densify nicely
+     * on paper without us having to add print: variants everywhere. */
+    font-size: 14px;
+  }
+
   body {
     margin: 0;
     padding: 0;
     background: white !important;
-    color: black;
-    line-height: 1.4;
-    font-size: 11pt;
+  }
+
+  /* Ensure subtle backgrounds (bg-neutral-50 on the table header, brand
+   * pill colors, etc.) actually print instead of getting flattened to
+   * white by the browser. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Keep each order card intact on a page. If a table has to split, repeat
+   * the header row on the next page. */
+  .print-order {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Reset screen-only sizing so content uses the full page width. */
+  .min-h-screen,
+  [class*="min-h-"] {
     min-height: 0 !important;
     height: auto !important;
   }
 
-  /* Container setup */
+  .max-w-7xl,
+  .max-w-6xl {
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
   .print-container {
     width: 100%;
     margin: 0;
@@ -28,111 +77,16 @@
     height: auto !important;
   }
 
-  /* Order section */
-  .print-order {
-    page-break-inside: avoid;
-    break-inside: avoid;
-    margin-bottom: 1.5cm;
-    background: white !important;
-  }
-
-  .print-order:last-child {
-    margin-bottom: 0;
-  }
-
-  /* Table styles */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 0.3cm 0;
-    page-break-inside: avoid;
-  }
-
-  th, td {
-    padding: 0.2cm;
-    border: 1px solid #000;
-    text-align: left;
-    background: white !important;
-  }
-
-  th {
-    font-weight: 600;
-    background-color: #f8f8f8 !important;
-  }
-
-  /* Typography */
-  h1 {
-    font-size: 16pt;
-    margin: 0 0 0.3cm 0;
-  }
-
-  h2 {
-    font-size: 13pt;
-    margin: 0 0 0.2cm 0;
-    line-height: 1.2;
-  }
-
-  h2 span {
-    font-size: 11pt;
-  }
-  /* Hide screen elements */
-  .print\:hidden {
-    display: none !important;
-  }
-
-  /* Force backgrounds */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Reset all backgrounds */
-  .bg-gray-50,
-  .bg-gray-100,
-  .bg-white,
-  [class*="bg-"] {
-    background: white !important;
-  }
-
-  /* Reset margins and padding */
-  .max-w-6xl,
-  .max-w-7xl {
-    max-width: none !important;
-    margin: 0 !important;
-  }
-
-  /* Manifest number print styles */
-  .print-order p {
-    margin-top: 0.1cm;
-    font-size: 10pt;
-  }
-
-  /* Manifest number print styles */
-  .print-order p {
-    margin: 0.1cm 0;
-    font-size: 10pt;
-    color: #000 !important;
-  }
-
-  /* Error text */
-  .text-red-600,
-  .print\:text-red-700 {
-    color: #dc2626 !important;
-  }
-
-  /* Remove extra page */
   .print-container::after {
     content: none !important;
   }
 
-  /* Fix height issues */
-  .min-h-screen,
-  [class*="min-h-"] {
-    min-height: 0 !important;
-    height: auto !important;
+  /* Shadows become blurry grey smudges on paper — suppress them everywhere. */
+  [class*="shadow-"] {
+    box-shadow: none !important;
   }
 
-  /* Ensure no forced page breaks */
+  /* The browser sometimes pushes page breaks onto arbitrary divs; reset. */
   div, section, main {
     page-break-after: auto;
     page-break-before: auto;

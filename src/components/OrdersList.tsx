@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Order, Product } from '@/types';
 import { OrderTable } from './OrderTable';
@@ -6,7 +7,7 @@ import { Button } from './ui/Button';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { FadeTransition } from './transitions/FadeTransition';
 import { LoadingModal } from './ui/LoadingModal';
-import { Printer, Edit2, Trash2, Trash, Download } from 'lucide-react';
+import { Printer, Edit2, Trash2, Trash, Download, Package } from 'lucide-react';
 import { downloadExcel } from '@/utils/export';
 import { sortOrdersByTime } from '@/utils/time';
 import { formatTrailerInfo } from '@/lib/utils';
@@ -84,39 +85,60 @@ export const OrdersList: React.FC<OrdersListProps> = ({
   };
 
   return (
-    <div className="space-y-6 mt-12">
-      <LoadingModal 
+    <div className="space-y-4 mt-10">
+      <LoadingModal
         isOpen={updatingOrder !== null || isDeletingAll}
         message={isDeletingAll ? "Deleting all orders..." : "Updating order..."}
       />
-      
-      {orders.length > 0 && (
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <h2 className="text-xl font-semibold">Orders</h2>
+
+      {orders.length > 0 ? (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-md bg-neutral-100 text-neutral-600">
+              <Package className="w-4 h-4" />
+            </div>
+            <h2 className="text-base font-semibold tracking-tight text-neutral-900">
+              Orders <span className="text-neutral-400 font-normal">({orders.length})</span>
+            </h2>
+          </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button
               onClick={() => setShowDeleteAllConfirmation(true)}
-              variant="danger"
-              className="flex items-center space-x-2 w-full sm:w-auto justify-center"
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1.5 w-full sm:w-auto justify-center text-red-600 hover:text-red-700 hover:border-red-200 hover:bg-red-50"
             >
-              <Trash className="w-5 h-5" />
-              <span>Delete All</span>
+              <Trash className="w-3.5 h-3.5" />
+              <span>Delete all</span>
             </Button>
             <Button
               onClick={() => downloadExcel(sortedOrders.map(o => o.order), productData)}
-              className="flex items-center space-x-2 w-full sm:w-auto justify-center"
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1.5 w-full sm:w-auto justify-center"
             >
-              <Download className="w-5 h-5" />
+              <Download className="w-3.5 h-3.5" />
               <span>Export Excel</span>
             </Button>
             <Button
               onClick={() => navigate('/print')}
-              className="flex items-center space-x-2 w-full sm:w-auto justify-center"
+              size="sm"
+              className="flex items-center gap-1.5 w-full sm:w-auto justify-center"
             >
-              <Printer className="w-5 h-5" />
-              <span>Print Orders</span>
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print orders</span>
             </Button>
           </div>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col items-center justify-center py-16 px-6 text-center rounded-card border border-dashed border-neutral-200 bg-white/60">
+          <div className="p-3 rounded-full bg-neutral-100 text-neutral-400 mb-4">
+            <Package className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-semibold text-neutral-900">No orders yet</h3>
+          <p className="text-sm text-neutral-500 mt-1 max-w-sm">
+            Drop a PDF above to extract orders automatically, or add one manually using the form.
+          </p>
         </div>
       )}
 
@@ -129,61 +151,74 @@ export const OrdersList: React.FC<OrdersListProps> = ({
             setDeletingIndex(null);
           }}
         >
-          <div className={`bg-white p-6 rounded-lg shadow-sm transition-all duration-300 ${
-            deletingIndex === sortedIndex ? 'opacity-50' : ''
-          }`}>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-              <div className="space-y-1 w-full sm:w-auto">
-                <h3 className="text-xl font-medium">
-                  {order.destination} - {order.time}
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.28,
+              ease: [0.22, 1, 0.36, 1],
+              delay: Math.min(sortedIndex * 0.03, 0.18),
+            }}
+            className={`group bg-white p-6 rounded-card border border-neutral-200/70 shadow-card transition-shadow duration-200 hover:shadow-card-hover ${
+              deletingIndex === sortedIndex ? 'opacity-50' : ''
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+              <div className="space-y-1 w-full sm:w-auto min-w-0">
+                <h3 className="text-lg font-semibold tracking-tight text-neutral-900 truncate">
+                  {order.destination}
+                  <span className="text-neutral-400 font-normal"> · </span>
+                  <span className="tabular-nums">{order.time}</span>
                 </h3>
                 {(order.manifestNumber || order.transportCompany || order.trailerType || order.trailerSize) && (
-                  <div className="text-base text-gray-700 font-medium">
+                  <div className="text-xs text-neutral-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     {order.manifestNumber && (
-                      <span>Manifest Number: {order.manifestNumber}</span>
+                      <span>
+                        <span className="text-neutral-400">Manifest</span> <span className="font-medium text-neutral-700">{order.manifestNumber}</span>
+                      </span>
                     )}
                     {order.manifestNumber && (order.transportCompany || order.trailerType || order.trailerSize) && (
-                      <span className="text-gray-500 mx-2">•</span>
+                      <span className="text-neutral-300">•</span>
                     )}
                     {order.transportCompany && (
-                      <span>{order.transportCompany}</span>
+                      <span className="font-medium text-neutral-700">{order.transportCompany}</span>
                     )}
                     {order.transportCompany && (order.trailerType || order.trailerSize) && (
-                      <span className="text-gray-500 mx-2">•</span>
+                      <span className="text-neutral-300">•</span>
                     )}
                     {(order.trailerType || order.trailerSize) && (
-                      <span>{formatTrailerInfo(order.trailerType, order.trailerSize)}</span>
+                      <span className="font-medium text-neutral-700">{formatTrailerInfo(order.trailerType, order.trailerSize)}</span>
                     )}
                   </div>
                 )}
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex gap-1.5 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleEdit(originalIndex)}
-                  className="flex items-center space-x-2 flex-1 sm:flex-initial justify-center"
+                  className="flex items-center gap-1.5 flex-1 sm:flex-initial justify-center"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-3.5 h-3.5" />
                   <span>Edit</span>
                 </Button>
                 <Button
-                  variant="danger"
+                  variant="outline"
                   size="sm"
                   onClick={() => handleDelete(sortedIndex)}
-                  className="flex items-center space-x-2 flex-1 sm:flex-initial justify-center"
+                  className="flex items-center gap-1.5 flex-1 sm:flex-initial justify-center text-red-600 hover:text-red-700 hover:border-red-200 hover:bg-red-50"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete</span>
                 </Button>
               </div>
             </div>
-            <OrderTable 
-              order={order} 
+            <OrderTable
+              order={order}
               productData={productData}
               onUpdateProduct={() => handleUpdateProduct(sortedIndex)}
             />
-          </div>
+          </motion.div>
         </FadeTransition>
       ))}
 

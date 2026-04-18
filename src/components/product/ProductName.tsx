@@ -13,14 +13,14 @@ export const ProductName: React.FC<ProductNameProps> = ({ details, code, onAddDe
     return (
       <div>
         <span className="text-red-600 print:text-red-700">
-          ⚠️ Unknown Product: {code}
+          ⚠️ Unknown product: {code}
         </span>
         {onAddDetails && (
           <button
             onClick={onAddDetails}
-            className="ml-2 text-sm text-blue-600 hover:text-blue-700"
+            className="ml-2 text-xs text-neutral-700 underline hover:text-neutral-900 transition-colors"
           >
-            Add Details
+            Add details
           </button>
         )}
       </div>
@@ -31,7 +31,7 @@ export const ProductName: React.FC<ProductNameProps> = ({ details, code, onAddDe
     <>
       {details.category} {formatRValue(details.rValue)}
       {details.width && (
-        <span className="text-gray-500 ml-1">({details.width})</span>
+        <span className="text-neutral-500 ml-1">({details.width})</span>
       )}
     </>
   );

@@ -35,22 +35,25 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({
   
   return (
     <>
-      <div 
-        className="flex items-center justify-center sm:justify-start cursor-pointer hover:bg-gray-50 rounded-md px-3 py-2 transition-colors duration-200 border border-gray-200"
+      <div
+        className="flex items-center justify-center sm:justify-start cursor-pointer bg-white border border-neutral-200/70 shadow-card hover:shadow-card-hover hover:border-neutral-300 rounded-full pl-1.5 pr-3.5 py-1.5 transition-[box-shadow,border-color] duration-200 ease-out-soft"
         onClick={openModal}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(); } }}
       >
         <ProfileAvatar profile={currentProfile} />
-        <div className="ml-2">
-          <p className="font-medium text-sm">{currentProfile.name}</p>
-          <p className="text-xs text-gray-500">
-            {currentProfile.is_default ? 'Default Profile' : 'Profile'}
+        <div className="ml-2.5 min-w-0">
+          <p className="font-medium text-sm text-neutral-900 leading-tight truncate">{currentProfile.name}</p>
+          <p className="text-[11px] text-neutral-500 leading-tight">
+            {currentProfile.is_default ? 'Default profile' : 'Profile'}
           </p>
         </div>
-        <div className="ml-auto hidden sm:block text-gray-400">
-          <User size={16} />
+        <div className="ml-3 hidden sm:block text-neutral-400">
+          <User size={14} />
         </div>
       </div>
-      
+
       <ProfileModal
         isOpen={isModalOpen}
         onClose={closeModal}

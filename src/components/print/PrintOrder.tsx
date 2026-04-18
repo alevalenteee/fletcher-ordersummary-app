@@ -6,34 +6,49 @@ import { formatTrailerInfo } from '@/lib/utils';
 interface PrintOrderProps {
   order: Order;
   productData: Product[];
-  isLast: boolean;
 }
 
-export const PrintOrder: React.FC<PrintOrderProps> = ({ 
-  order, 
-  productData, 
-  isLast 
-}) => {
+export const PrintOrder: React.FC<PrintOrderProps> = ({ order, productData }) => {
+  const hasMeta =
+    order.manifestNumber ||
+    order.transportCompany ||
+    order.trailerType ||
+    order.trailerSize;
+
   return (
-    <div className="print-order">
-      <div className="mb-3">
-        <h2 className="text-xl font-semibold mb-1 flex flex-col sm:flex-row sm:items-center gap-1">
-          {order.destination} - {order.time} 
-          {(order.manifestNumber || order.transportCompany || order.trailerType || order.trailerSize) && (
-            <span className="text-base font-normal text-gray-600 sm:ml-2">
-              ({[
-                order.manifestNumber ? `Manifest: ${order.manifestNumber}` : '',
-                order.transportCompany ? order.transportCompany : '',
-                (order.trailerType || order.trailerSize) ? formatTrailerInfo(order.trailerType, order.trailerSize) : ''
-              ].filter(Boolean).join(', ')})
-            </span>
-          )}
-        </h2>
+    <div className="print-order bg-white border border-neutral-200/70 rounded-card shadow-card p-6 print:p-4 print:shadow-none">
+      <div className="space-y-1 mb-4">
+        <h3 className="text-lg font-semibold tracking-tight text-neutral-900">
+          {order.destination}
+          <span className="text-neutral-400 font-normal"> · </span>
+          <span className="tabular-nums">{order.time}</span>
+        </h3>
+        {hasMeta && (
+          <div className="text-xs text-neutral-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {order.manifestNumber && (
+              <span>
+                <span className="text-neutral-400">Manifest</span>{' '}
+                <span className="font-medium text-neutral-700">{order.manifestNumber}</span>
+              </span>
+            )}
+            {order.manifestNumber && (order.transportCompany || order.trailerType || order.trailerSize) && (
+              <span className="text-neutral-300">•</span>
+            )}
+            {order.transportCompany && (
+              <span className="font-medium text-neutral-700">{order.transportCompany}</span>
+            )}
+            {order.transportCompany && (order.trailerType || order.trailerSize) && (
+              <span className="text-neutral-300">•</span>
+            )}
+            {(order.trailerType || order.trailerSize) && (
+              <span className="font-medium text-neutral-700">
+                {formatTrailerInfo(order.trailerType, order.trailerSize)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
-      <div className="overflow-x-auto">
-        <OrderTable order={order} productData={productData} />
-      </div>
-      {!isLast && <hr className="my-6 print:my-8" />}
+      <OrderTable order={order} productData={productData} />
     </div>
   );
 };

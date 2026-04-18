@@ -138,70 +138,87 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
-      <LoadingModal 
-        isOpen={analyzing || Boolean(progress?.analyzing)} 
+    <div className="bg-white p-6 sm:p-7 rounded-card border border-neutral-200/70 shadow-card mb-6">
+      <LoadingModal
+        isOpen={analyzing || Boolean(progress?.analyzing)}
         message={progress ? `Analyzing PDF ${progress.current} of ${progress.total}...` : 'Analyzing PDFs...'}
       />
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h2 className="text-xl font-semibold">Upload Order PDFs</h2>
-        {progress && <p className="text-sm text-gray-600">Processing {progress.current} of {progress.total} PDFs...</p>}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-md bg-neutral-100 text-neutral-600">
+            <FileUp className="w-4 h-4" />
+          </div>
+          <h2 className="text-base font-semibold tracking-tight text-neutral-900">
+            Import from PDF
+          </h2>
+        </div>
+        {progress && (
+          <p className="text-xs text-neutral-500">
+            Processing {progress.current} of {progress.total}…
+          </p>
+        )}
       </div>
 
-      <div 
-        {...getRootProps()} 
+      <div
+        {...getRootProps()}
         className={cn(
-          "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
-          isDragActive ? "border-black bg-gray-50" : "border-gray-300 hover:border-gray-400"
+          'border border-dashed rounded-card p-10 text-center cursor-pointer transition-all duration-200 ease-out-soft',
+          isDragActive
+            ? 'border-brand-400 bg-brand-50/50 ring-4 ring-brand-100/60'
+            : 'border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50/60'
         )}
       >
         <input {...getInputProps()} />
-        <FileUp className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-        <p className="text-gray-600 mb-2">
-          {isDragActive ? (
-            "Drop the PDF files here"
-          ) : (
-            "Drag and drop PDF files here, or click to select files"
-          )}
+        <div className={cn(
+          'w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors',
+          isDragActive ? 'bg-brand-100 text-brand-600' : 'bg-neutral-100 text-neutral-500'
+        )}>
+          <FileUp className="w-5 h-5" />
+        </div>
+        <p className="text-sm font-medium text-neutral-800 mb-1">
+          {isDragActive ? 'Drop PDFs to analyze' : 'Drag and drop PDF files here'}
         </p>
-        <p className="text-sm text-gray-500">
-          You can upload multiple PDFs at once
+        <p className="text-xs text-neutral-500">
+          or click to select — multiple files supported
         </p>
       </div>
 
       {files.length > 0 && (
         <div className="mt-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium">Selected Files ({files.length})</h3>
+            <h3 className="text-sm font-medium text-neutral-700">
+              Selected files <span className="text-neutral-400">({files.length})</span>
+            </h3>
             <Button
               onClick={analyzePDFs}
               disabled={progress?.analyzing}
-              className="flex items-center gap-2 min-w-[120px] justify-center"
+              size="sm"
+              className="flex items-center gap-1.5 min-w-[120px] justify-center"
             >
               {progress?.analyzing ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Analyzing...</span>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Analyzing…</span>
                 </>
               ) : (
                 <>
-                  <FileUp className="w-4 h-4" />
+                  <FileUp className="w-3.5 h-3.5" />
                   <span>Analyze PDFs</span>
                 </>
               )}
             </Button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {files.map((file, index) => (
-              <div 
+              <div
                 key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
+                className="flex items-center justify-between px-3 py-2 bg-neutral-50 border border-neutral-200/70 rounded-lg"
               >
-                <span className="truncate flex-1 mr-4">{file.name}</span>
+                <span className="truncate flex-1 mr-4 text-sm text-neutral-700">{file.name}</span>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => removeFile(index)}
                   className="shrink-0"
@@ -215,8 +232,8 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
       )}
 
       {error && (
-        <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-md flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <div className="mt-4 px-3.5 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg flex items-center gap-2 text-sm">
+          <AlertCircle className="w-4 h-4 shrink-0" />
           <p>{error}</p>
         </div>
       )}

@@ -64,10 +64,10 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-[50vh] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading orders...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-neutral-200 border-t-neutral-900 mx-auto"></div>
+          <p className="mt-4 text-sm text-neutral-500">Loading orders...</p>
         </div>
       </div>
     );
@@ -75,7 +75,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-6">
+      <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-card mb-6 text-sm">
         {error}
       </div>
     );
@@ -84,9 +84,9 @@ export const HomePage: React.FC<HomePageProps> = ({
   return (
     <>
       <LoadingModal isOpen={isSubmitting} message="Updating Orders..." />
-      
+
       {currentProfile && (
-        <div className="bg-white rounded-lg p-4 mb-6 shadow-sm flex justify-center sm:justify-start">
+        <div className="mb-6 flex justify-center sm:justify-start">
           <ProfileSelector
             profiles={profiles}
             currentProfile={currentProfile}
