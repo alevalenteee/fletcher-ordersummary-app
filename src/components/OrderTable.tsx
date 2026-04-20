@@ -8,7 +8,7 @@ interface OrderTableProps {
   productData: Product[];
   onUpdateProduct?: (index: number, product: OrderProduct) => void;
   locations?: Location[];
-  locationsByIndex?: Record<number, string>;
+  locationsByIndex?: Record<number, string[]>;
 }
 
 export const OrderTable: React.FC<OrderTableProps> = ({ 
@@ -37,7 +37,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
               (updatedProduct) => onUpdateProduct(index, updatedProduct) : 
               undefined
             }
-            location={locationsByIndex[index]}
+            locations={locationsByIndex[index]}
             allLocations={locations}
           />
         ))}

@@ -28,8 +28,8 @@ interface HomePageProps {
   onCreateDestination?: (name: string) => Promise<Destination>;
   onDeleteDestination?: (id: string) => Promise<void>;
   locations?: Location[];
-  getLocationsFor?: (orderId: string | undefined) => Record<number, string>;
-  onSubmitOrderLocations?: (orderId: string, draft: Record<number, string>) => void;
+  getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
+  onSubmitOrderLocations?: (orderId: string, draft: Record<number, string[]>) => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({

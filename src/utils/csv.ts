@@ -1,6 +1,6 @@
-import { Product } from '@/types';
+import { Product, ProductType, PRODUCT_TYPES } from '@/types';
 
-const CSV_HEADERS = ['Category', 'R-Value', 'NewCode', 'OldCode', 'PacksPerBale', 'Width'] as const;
+const CSV_HEADERS = ['Category', 'R-Value', 'NewCode', 'OldCode', 'PacksPerBale', 'Width', 'Type'] as const;
 
 // RFC 4180: wrap a value in quotes (and double any embedded quotes) when it
 // contains a comma, quote, CR, or LF. Otherwise emit as-is.
@@ -14,7 +14,7 @@ const escapeCSVValue = (value: string | number): string => {
 
 export const toCSV = (products: Product[]): string => {
   const rows = products.map(p =>
-    [p.category, p.rValue, p.newCode, p.oldCode, p.packsPerBale, p.width]
+    [p.category, p.rValue, p.newCode, p.oldCode, p.packsPerBale, p.width, p.type ?? '']
       .map(escapeCSVValue)
       .join(',')
   );
@@ -36,10 +36,22 @@ export const downloadCSV = (products: Product[], filename?: string): void => {
   URL.revokeObjectURL(url);
 };
 
+const isProductType = (v: string): v is ProductType =>
+  (PRODUCT_TYPES as string[]).includes(v);
+
+// Case-insensitive mapping: accepts "batt", "BATT", "Batt" etc.
+const normaliseType = (raw: string): ProductType | undefined => {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  const title = trimmed[0].toUpperCase() + trimmed.slice(1).toLowerCase();
+  return isProductType(title) ? title : undefined;
+};
+
 export const parseCSV = (csvString: string): Product[] => {
   const lines = csvString.split(/\r\n|\n/).filter(line => line.trim());
   const headers = lines[0].split(',').map(header => header.trim());
-  
+
   const parsedData = lines.slice(1).map(line => {
     const values = line.split(',').map(value => value.trim());
     const row: Record<string, string> = {};
@@ -56,11 +68,12 @@ export const parseCSV = (csvString: string): Product[] => {
       newCode: row.NewCode,
       oldCode: row.OldCode,
       packsPerBale: parseInt(row.PacksPerBale) || 0,
-      width: row.Width
+      width: row.Width,
+      type: normaliseType(row.Type),
     }))
-    .filter(product => 
-      product.category && 
-      (product.newCode || product.oldCode) && 
+    .filter(product =>
+      product.category &&
+      (product.newCode || product.oldCode) &&
       product.packsPerBale > 0
     );
 };

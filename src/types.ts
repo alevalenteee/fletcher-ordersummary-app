@@ -1,3 +1,7 @@
+export type ProductType = 'Batt' | 'Roll' | 'Pallet' | 'Board' | 'Other';
+
+export const PRODUCT_TYPES: ProductType[] = ['Batt', 'Roll', 'Pallet', 'Board', 'Other'];
+
 export interface Product {
   category: string;
   rValue: string;
@@ -5,6 +9,7 @@ export interface Product {
   oldCode: string;
   packsPerBale: number;
   width: string;
+  type?: ProductType;
 }
 
 export interface OrderProduct {

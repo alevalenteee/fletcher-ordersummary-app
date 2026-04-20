@@ -19,8 +19,8 @@ interface OrdersListProps {
   onEditOrder: (index: number) => void;
   onDeleteOrder: (index: number) => void;
   locations?: Location[];
-  getLocationsFor?: (orderId: string | undefined) => Record<number, string>;
-  onSubmitOrderLocations?: (orderId: string, draft: Record<number, string>) => void;
+  getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
+  onSubmitOrderLocations?: (orderId: string, draft: Record<number, string[]>) => void;
 }
 
 export const OrdersList: React.FC<OrdersListProps> = ({

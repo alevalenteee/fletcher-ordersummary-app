@@ -7,7 +7,7 @@ interface PrintOrderProps {
   order: Order;
   productData: Product[];
   locations?: Location[];
-  locationsByIndex?: Record<number, string>;
+  locationsByIndex?: Record<number, string[]>;
 }
 
 export const PrintOrder: React.FC<PrintOrderProps> = ({

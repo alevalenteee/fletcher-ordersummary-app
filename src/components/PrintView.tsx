@@ -9,7 +9,7 @@ interface PrintViewProps {
   productData: Product[];
   orders: Order[];
   locations?: Location[];
-  getLocationsFor?: (orderId: string | undefined) => Record<number, string>;
+  getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
 }
 
 export const PrintView: React.FC<PrintViewProps> = ({

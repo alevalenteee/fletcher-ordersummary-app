@@ -13,11 +13,11 @@ interface LocationsModalProps {
   orders: Order[];
   productData: Product[];
   locations: Location[];
-  getLocationsFor: (orderId: string | undefined) => Record<number, string>;
-  onSubmit: (orderId: string, draft: Record<number, string>) => void;
+  getLocationsFor: (orderId: string | undefined) => Record<number, string[]>;
+  onSubmit: (orderId: string, draft: Record<number, string[]>) => void;
 }
 
-type DraftMap = Record<string, Record<number, string>>;
+type DraftMap = Record<string, Record<number, string[]>>;
 
 interface Row {
   orderId: string;
@@ -100,12 +100,12 @@ export const LocationsModal: React.FC<LocationsModalProps> = ({
     return () => clearTimeout(timeout);
   }, [isOpen, flatRows.length]);
 
-  const handlePick = (orderId: string, productIndex: number, code: string | undefined) => {
+  const handlePick = (orderId: string, productIndex: number, codes: string[]) => {
     setDraft(prev => {
       const next = { ...prev };
       const existing = { ...(next[orderId] || {}) };
-      if (code) {
-        existing[productIndex] = code;
+      if (codes.length > 0) {
+        existing[productIndex] = codes;
       } else {
         delete existing[productIndex];
       }
@@ -155,7 +155,7 @@ export const LocationsModal: React.FC<LocationsModalProps> = ({
                 Add locations
               </h2>
               <p className="text-xs text-neutral-500 mt-0.5">
-                Tap a product's location slot, pick a spot — it jumps to the next row automatically.
+                Tap a location to assign — the picker jumps to the next row. Re-open to add more for a product, then press Done.
               </p>
             </div>
           </div>
@@ -180,7 +180,7 @@ export const LocationsModal: React.FC<LocationsModalProps> = ({
               <div className="rounded-lg border border-neutral-200/70 divide-y divide-neutral-100 bg-white">
                 {section.rows.map(row => {
                   const { name, code } = productLabel(row.product, productData);
-                  const current = draft[row.orderId]?.[row.productIndex];
+                  const current = draft[row.orderId]?.[row.productIndex] ?? [];
                   const flatIndex = flatCursor++;
                   return (
                     <div
@@ -199,7 +199,7 @@ export const LocationsModal: React.FC<LocationsModalProps> = ({
                         <LocationPicker
                           ref={(el) => (pickerRefs.current[flatIndex] = el)}
                           value={current}
-                          onChange={(code) => handlePick(row.orderId, row.productIndex, code)}
+                          onChange={(codes) => handlePick(row.orderId, row.productIndex, codes)}
                           onAdvance={() => handleAdvance(flatIndex)}
                           locations={locations}
                         />

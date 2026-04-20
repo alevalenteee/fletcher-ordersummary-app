@@ -44,39 +44,39 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
     if (files.length === 0) return;
 
     setAnalyzing(true);
+    setError(null);
     setProgress({ analyzing: true, current: 0, total: files.length });
-    const analyzedOrders: Order[] = [];
 
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setProgress(prev => ({ 
-          analyzing: true,
-          current: i + 1, 
-          total: prev?.total || files.length 
-        }));
+    const CONCURRENCY = 4;
+    const destinationNames = destinations.map(d => d.name);
+    const results: Array<Order | null> = new Array(files.length).fill(null);
+    const failedIndices = new Set<number>();
+    let completed = 0;
 
-        // Read file as base64
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            const base64 = result.split(',')[1];
-            resolve(base64);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+    const fileToBase64 = (file: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
 
-        // Analyze PDF using Gemini
+    const queue = files.map((file, index) => ({ file, index }));
+
+    const worker = async () => {
+      while (queue.length > 0) {
+        const next = queue.shift();
+        if (!next) break;
+        const { file, index } = next;
+
         try {
-          const order = await analyzePDFContent(
-            base64,
-            productData,
-            destinations.map(d => d.name)
-          );
+          const base64 = await fileToBase64(file);
+          const order = await analyzePDFContent(base64, productData, destinationNames);
+
           if (order) {
-            // Log the extracted order for debugging
             console.log('Extracted order with manifest:', {
               destination: order.destination,
               time: order.time,
@@ -86,11 +86,10 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
               trailerSize: order.trailerSize,
               productCount: order.products.length
             });
-            
+
             if (order.time && order.time !== "00:00") {
               console.log('Successfully extracted time from PDF:', order.time);
             }
-            
             if (order.manifestNumber) {
               console.log('Found manifest number:', order.manifestNumber);
             }
@@ -98,29 +97,58 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
               console.log('Found transport company:', order.transportCompany);
             }
 
-            analyzedOrders.push(order);
+            results[index] = order;
           } else {
-            throw new Error(`Failed to analyze PDF: ${file.name}`);
+            console.error(`Failed to analyze PDF ${file.name}: no order returned`);
+            failedIndices.add(index);
           }
         } catch (err) {
           console.error(`Error analyzing PDF ${file.name}:`, err);
-          setError(`Failed to analyze PDF: ${file.name}. Please check the file and try again.`);
-          break;
+          failedIndices.add(index);
+        } finally {
+          completed += 1;
+          setProgress(prev => prev ? { ...prev, current: completed } : prev);
         }
       }
+    };
+
+    try {
+      const workerCount = Math.min(CONCURRENCY, files.length);
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+      const analyzedOrders = results.filter((o): o is Order => o !== null);
 
       if (analyzedOrders.length > 0) {
-        // Log orders before submitting
-        console.log('Submitting orders with manifests, transport companies, and trailer info:', 
+        console.log('Submitting orders with manifests, transport companies, and trailer info:',
           analyzedOrders.map(o => ({
             destination: o.destination,
             manifestNumber: o.manifestNumber,
             transportCompany: o.transportCompany,
-            trailerInfo: o.trailerType || o.trailerSize ? `${o.trailerType || ''} ${o.trailerSize || ''}`.trim() : 'None'
+            trailerInfo: o.trailerType || o.trailerSize
+              ? `${o.trailerType || ''} ${o.trailerSize || ''}`.trim()
+              : 'None'
           }))
         );
-        
+
         await onOrdersAnalyzed(analyzedOrders);
+      }
+
+      if (failedIndices.size > 0) {
+        const failedNames = files
+          .filter((_, i) => failedIndices.has(i))
+          .map(f => f.name);
+        const plural = failedIndices.size === 1 ? '' : 's';
+        if (analyzedOrders.length > 0) {
+          setError(
+            `Failed to analyze ${failedIndices.size} of ${files.length} PDF${plural}: ${failedNames.join(', ')}. The successful ones were added.`
+          );
+        } else {
+          setError(
+            `Failed to analyze PDF${plural}: ${failedNames.join(', ')}. Please check the file${plural} and try again.`
+          );
+        }
+        setFiles(prev => prev.filter((_, i) => failedIndices.has(i)));
+      } else {
         setFiles([]);
       }
     } catch (err) {
@@ -128,7 +156,6 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to analyze PDFs. Please try again.');
     } finally {
       setAnalyzing(false);
-      setProgress(prev => prev ? { ...prev, analyzing: false } : null);
       setProgress(null);
     }
   };

@@ -1,82 +1,58 @@
 import React from 'react';
-import { parseCSV, downloadCSV } from '../utils/csv';
+import { downloadCSV } from '../utils/csv';
 import { Product } from '@/types';
-import { Save, Check, Database, Download } from 'lucide-react';
+import { Check, Database, Download, Pencil } from 'lucide-react';
 import { Button } from './ui/Button';
 import { cn } from '@/lib/utils';
+import { ProductCatalogueModal } from './product-catalogue';
 
 interface FileUploadProps {
   onDataLoaded: (data: Product[]) => void;
-  onSaveDefault: (data: Product[]) => void;
+  onSaveDefault: (data: Product[]) => Promise<void> | void;
   productData: Product[];
   className?: string;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ 
-  onDataLoaded, 
+// Kept the filename for import stability; the card is now "Product data" and
+// owns the ProductCatalogueModal that handles editing, CSV import, and CSV
+// export. The CSV download stays on the card for quick access.
+export const FileUpload: React.FC<FileUploadProps> = ({
+  onDataLoaded,
   onSaveDefault,
   productData,
-  className
+  className,
 }) => {
-  const [status, setStatus] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
-  const [hasChanges, setHasChanges] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const [status, setStatus] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const productCount = productData.length;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    
-    reader.onload = (event) => {
-      try {
-        const csvContent = event.target?.result as string;
-        const parsedData = parseCSV(csvContent);
-        
-        if (parsedData.length === 0) {
-          throw new Error('No valid product data found in CSV');
-        }
-
-        onDataLoaded(parsedData);
-        setHasChanges(true);
-        setStatus({ 
-          type: 'success', 
-          message: `Successfully loaded ${parsedData.length} products` 
-        });
-      } catch (error) {
-        setStatus({ 
-          type: 'error', 
-          message: `Error processing CSV: ${(error as Error).message}` 
-        });
-        console.error('CSV processing error:', error);
-      }
-    };
-
-    reader.onerror = () => {
-      setStatus({ type: 'error', message: 'Error reading file' });
-    };
-
-    reader.readAsText(file);
-  };
-
-  const handleSaveDefault = () => {
-    onSaveDefault(productData);
-    setHasChanges(false);
-    setStatus({
-      type: 'success',
-      message: 'Successfully saved as default product data'
-    });
-  };
-
   const handleDownload = () => {
+    if (productCount === 0) return;
     downloadCSV(productData);
   };
 
+  const handleSaveCatalogue = async (next: Product[]) => {
+    try {
+      await Promise.resolve(onSaveDefault(next));
+      onDataLoaded(next);
+      setStatus({
+        type: 'success',
+        message: `Saved ${next.length} product${next.length === 1 ? '' : 's'}`,
+      });
+    } catch (err) {
+      setStatus({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to save catalogue',
+      });
+      throw err;
+    }
+  };
+
   return (
-    <div className={cn("section mb-6", className)}>
+    <div className={cn('section mb-6', className)}>
       <div className="bg-white p-6 sm:p-7 rounded-card border border-neutral-200/70 shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-md bg-neutral-100 text-neutral-600">
               <Database className="w-4 h-4" />
@@ -103,45 +79,40 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               <Download className="w-3.5 h-3.5" />
               Download
             </Button>
-            {hasChanges && (
-              <Button
-                onClick={handleSaveDefault}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1.5"
-              >
-                <Save className="w-3.5 h-3.5" />
-                Save as default
-              </Button>
-            )}
+            <Button
+              onClick={() => {
+                setStatus(null);
+                setModalOpen(true);
+              }}
+              size="sm"
+              className="flex items-center gap-1.5"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Edit catalogue
+            </Button>
           </div>
         </div>
-        <input
-          type="file"
-          accept=".csv"
-          onChange={handleFileChange}
-          className="block w-full text-sm text-neutral-500
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-md file:border-0
-            file:text-xs file:font-medium
-            file:bg-neutral-900 file:text-white
-            hover:file:bg-neutral-800
-            file:cursor-pointer cursor-pointer
-            file:transition-colors
-            file:w-full sm:file:w-auto
-            file:mb-2 sm:file:mb-0"
-        />
+
         {status && (
-          <div className={cn(
-            'mt-4 px-3.5 py-2.5 rounded-lg text-sm',
-            status.type === 'success'
-              ? 'bg-brand-50 text-brand-700 border border-brand-200/60'
-              : 'bg-red-50 text-red-700 border border-red-200'
-          )}>
+          <div
+            className={cn(
+              'mt-4 px-3.5 py-2.5 rounded-lg text-sm',
+              status.type === 'success'
+                ? 'bg-brand-50 text-brand-700 border border-brand-200/60'
+                : 'bg-red-50 text-red-700 border border-red-200'
+            )}
+          >
             {status.message}
           </div>
         )}
       </div>
+
+      <ProductCatalogueModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        products={productData}
+        onSave={handleSaveCatalogue}
+      />
     </div>
   );
 };

@@ -4,12 +4,13 @@ import { getProductDetails } from '@/utils';
 import { ProductName, ProductCode, ProductOutput, ProductDetailsForm } from '../product';
 import { formatRValue } from '@/utils';
 import { useState } from 'react';
+import { formatLocationCodes, hasAwningCode, stripAwningCodes } from '@/utils/locations';
 
 interface TableRowProps {
   product: OrderProduct;
   productData: Product[];
   onUpdateProduct?: (product: OrderProduct) => void;
-  location?: string;
+  locations?: string[];
   allLocations?: Location[];
 }
 
@@ -17,14 +18,18 @@ export const TableRow: React.FC<TableRowProps> = ({
   product, 
   productData,
   onUpdateProduct,
-  location,
+  locations = [],
   allLocations = []
 }) => {
   const details = getProductDetails(product.productCode, productData);
   const [isEditing, setIsEditing] = useState(false);
-  const isAwning = !!location && allLocations.some(l => l.code === location && l.group === 'AWNING');
-  // AWNING items only show (A) in Output; the location code is omitted from Code.
-  const codeLocation = isAwning ? undefined : location;
+  const isAwning = hasAwningCode(locations, allLocations);
+  // AWNING items render (A) in Output; their codes are omitted from the CODE
+  // column. Non-AWNING codes still render there in their compact form.
+  const codeLocation = formatLocationCodes(
+    stripAwningCodes(locations, allLocations),
+    allLocations
+  ) || undefined;
 
   const handleSaveDetails = (manualDetails: OrderProduct['manualDetails']) => {
     if (onUpdateProduct) {

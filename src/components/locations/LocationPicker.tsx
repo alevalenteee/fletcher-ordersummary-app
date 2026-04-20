@@ -11,14 +11,16 @@ import {
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Location, LocationGroup } from '@/types';
+import { Button } from '../ui/Button';
+import { formatLocationCodes } from '@/utils/locations';
 
 export interface LocationPickerHandle {
   focus: () => void;
 }
 
 interface LocationPickerProps {
-  value: string | undefined;
-  onChange: (code: string | undefined) => void;
+  value: string[];
+  onChange: (codes: string[]) => void;
   locations: Location[];
   onAdvance?: () => void;
   placeholder?: string;
@@ -37,6 +39,11 @@ export const LocationPicker = forwardRef<LocationPickerHandle, LocationPickerPro
   ) {
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+    // When the popup opens with no existing selections we run in "quick-pick"
+    // mode: the first tap commits and closes, mirroring the old one-tap UX.
+    // When it opens with ≥1 selection it runs in "multi-select" mode: taps
+    // toggle selections and the user explicitly presses Done to close.
+    const [multiSelectMode, setMultiSelectMode] = useState(false);
 
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const popupRef = useRef<HTMLDivElement | null>(null);
@@ -56,6 +63,16 @@ export const LocationPicker = forwardRef<LocationPickerHandle, LocationPickerPro
         .map(group => ({ group, items: byGroup.get(group)! }))
         .filter(s => s.items.length > 0);
     }, [locations]);
+
+    const displayLabel = useMemo(
+      () => formatLocationCodes(value, locations),
+      [value, locations]
+    );
+
+    const openPopup = useCallback(() => {
+      setMultiSelectMode(value.length > 0);
+      setOpen(true);
+    }, [value.length]);
 
     // Position the popup relative to the trigger, flipping above if needed.
     useLayoutEffect(() => {
@@ -78,7 +95,8 @@ export const LocationPicker = forwardRef<LocationPickerHandle, LocationPickerPro
       setPosition({ top, left });
     }, [open]);
 
-    // Close on outside mousedown, Escape, scroll, or resize.
+    // Close on outside mousedown, Escape, scroll, or resize. In multi-select
+    // mode closing via outside-click/Escape does NOT advance focus.
     useEffect(() => {
       if (!open) return;
       const onMouseDown = (e: MouseEvent) => {
@@ -103,9 +121,9 @@ export const LocationPicker = forwardRef<LocationPickerHandle, LocationPickerPro
       };
     }, [open]);
 
-    const commit = useCallback(
-      (code: string | undefined) => {
-        onChange(code);
+    const quickPick = useCallback(
+      (code: string) => {
+        onChange([code]);
         setOpen(false);
         // Let React flush the close before the parent moves focus.
         queueMicrotask(() => {
@@ -115,28 +133,50 @@ export const LocationPicker = forwardRef<LocationPickerHandle, LocationPickerPro
       [onAdvance, onChange]
     );
 
+    const toggle = useCallback(
+      (code: string) => {
+        if (value.includes(code)) {
+          onChange(value.filter(c => c !== code));
+        } else {
+          onChange([...value, code]);
+        }
+      },
+      [onChange, value]
+    );
+
+    const finishMulti = useCallback(() => {
+      setOpen(false);
+      queueMicrotask(() => {
+        onAdvance?.();
+      });
+    }, [onAdvance]);
+
+    const clearAll = useCallback(() => {
+      onChange([]);
+    }, [onChange]);
+
     return (
       <>
         <button
           ref={triggerRef}
           type="button"
-          onClick={() => setOpen(o => !o)}
+          onClick={() => (open ? setOpen(false) : openPopup())}
           aria-haspopup="dialog"
           aria-expanded={open}
           className={`group w-full h-9 px-3 pr-8 border border-neutral-200 rounded-lg bg-white text-sm tabular-nums text-left transition-colors hover:border-neutral-300 focus:outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10 ${
-            value ? 'text-neutral-900 font-medium' : 'text-neutral-400'
+            value.length > 0 ? 'text-neutral-900 font-medium' : 'text-neutral-400'
           } ${className || ''} relative`}
         >
-          <span className="block truncate">{value || placeholder}</span>
-          {value && (
+          <span className="block truncate">{displayLabel || placeholder}</span>
+          {value.length > 0 && (
             <span
               role="button"
               tabIndex={-1}
-              aria-label="Clear location"
+              aria-label="Clear locations"
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onChange(undefined);
+                clearAll();
                 triggerRef.current?.focus();
               }}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-md transition-colors"
@@ -167,14 +207,18 @@ export const LocationPicker = forwardRef<LocationPickerHandle, LocationPickerPro
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {items.map(loc => {
-                      const isSelected = loc.code === value;
+                      const isSelected = value.includes(loc.code);
                       return (
                         <button
                           key={loc.code}
                           type="button"
                           onMouseDown={(e) => {
                             e.preventDefault();
-                            commit(loc.code);
+                            if (multiSelectMode) {
+                              toggle(loc.code);
+                            } else {
+                              quickPick(loc.code);
+                            }
                           }}
                           className={`px-2.5 py-1.5 text-xs tabular-nums rounded-md border transition-colors ${
                             isSelected
@@ -190,6 +234,26 @@ export const LocationPicker = forwardRef<LocationPickerHandle, LocationPickerPro
                 </div>
               ))}
             </div>
+
+            {multiSelectMode && (
+              <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between gap-2">
+                <span className="text-xs text-neutral-500">
+                  {value.length === 0
+                    ? 'Tap locations to add'
+                    : `${value.length} selected — ${displayLabel}`}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    finishMulti();
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
+            )}
           </div>,
           document.body
         )}

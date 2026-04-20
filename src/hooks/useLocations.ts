@@ -5,12 +5,8 @@ import { supabase } from '@/lib/supabase';
 // Safety-net seed if the `locations` table comes back empty.
 // Source of truth is the migration 20260419000001_create_locations.sql.
 const DEFAULT_LOCATIONS: Array<{ code: string; group: LocationGroup; sort_order: number }> = [
-  ...['A', 'B', 'C', 'D', 'E', 'F'].map((l, i) => ({
-    code: `AWN-${l}`,
-    group: 'AWNING' as const,
-    sort_order: i + 1,
-  })),
-  { code: 'XDOCK', group: 'AWNING', sort_order: 7 },
+  { code: 'AWNING', group: 'AWNING', sort_order: 1 },
+  { code: 'XDOCK', group: 'AWNING', sort_order: 2 },
   ...'ABCDEFGHIJKLMNOPQRSTU'.split('').map((l, i) => ({
     code: `GR2-${l}`,
     group: 'GR2' as const,
