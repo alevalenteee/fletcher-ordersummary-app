@@ -1,4 +1,5 @@
 import React from 'react';
+import { AlertCircle } from 'lucide-react';
 import { Location, OrderProduct, Product } from '@/types';
 import { getProductDetails } from '@/utils';
 import { ProductName, ProductCode, ProductOutput, ProductDetailsForm } from '../product';
@@ -10,16 +11,20 @@ interface TableRowProps {
   product: OrderProduct;
   productData: Product[];
   onUpdateProduct?: (product: OrderProduct) => void;
+  onToggleMustGo?: () => Promise<void> | void;
   locations?: string[];
   allLocations?: Location[];
+  isPrint?: boolean;
 }
 
-export const TableRow: React.FC<TableRowProps> = ({ 
-  product, 
+export const TableRow: React.FC<TableRowProps> = ({
+  product,
   productData,
   onUpdateProduct,
+  onToggleMustGo,
   locations = [],
-  allLocations = []
+  allLocations = [],
+  isPrint = false
 }) => {
   const details = getProductDetails(product.productCode, productData);
   const [isEditing, setIsEditing] = useState(false);
@@ -41,13 +46,38 @@ export const TableRow: React.FC<TableRowProps> = ({
     setIsEditing(false);
   };
   
+  const mustGo = !!product.mustGo;
+  // Print view uses a heavier 4px border + a light tint so the row is
+  // obviously flagged even once the on-screen hover/pill cues are gone.
+  // Actual paper still prints the border (real border, always prints) and
+  // suppresses the tint so it doesn't depend on "background graphics".
+  const mustGoCellClasses = mustGo
+    ? isPrint
+      ? 'border-l-[4px] border-red-600 bg-red-50/60 print:bg-transparent'
+      : 'border-l-[3px] border-red-500 bg-red-50/40 print:bg-transparent'
+    : '';
+
+  // Rows whose code wasn't in the catalogue get a small red alert icon next
+  // to the "Unknown Product" label so they're easy to spot at a glance.
+  const isUnknown = !details && product.manualDetails?.type === 'Unknown';
+  const unknownIcon = isUnknown ? (
+    <AlertCircle
+      className="w-3.5 h-3.5 text-red-500 shrink-0 print:text-black"
+      strokeWidth={2.25}
+      aria-label="Unknown product"
+    />
+  ) : null;
+
   return (
-    <tr className="border-t border-neutral-100 hover:bg-neutral-50/60 transition-colors print:table-row print:hover:bg-transparent">
+    <tr className="group border-t border-neutral-100 hover:bg-neutral-50/60 transition-colors print:table-row print:hover:bg-transparent">
       {/* Desktop & Print View */}
       <td className="hidden sm:table-cell px-3 py-3 truncate text-sm text-neutral-800">
         {!details && !isEditing && product.manualDetails ? (
           <div>
-            <div className="font-medium text-neutral-900">{product.manualDetails.category}</div>
+            <div className="font-medium text-neutral-900 flex items-center gap-1.5">
+              {unknownIcon}
+              <span>{product.manualDetails.category}</span>
+            </div>
             <div className="text-xs text-neutral-500">
               {product.manualDetails.description}
             </div>
@@ -66,12 +96,17 @@ export const TableRow: React.FC<TableRowProps> = ({
           />
         )}
       </td>
-      <td className="hidden sm:table-cell px-3 py-3 truncate text-sm text-neutral-700 tabular-nums">
+      <td
+        className={`hidden sm:table-cell px-3 py-3 truncate text-sm text-neutral-700 tabular-nums ${mustGoCellClasses}`}
+      >
         <ProductCode
           details={details}
           code={product.productCode}
           manualDetails={product.manualDetails}
           location={codeLocation}
+          mustGo={mustGo}
+          onToggleMustGo={onToggleMustGo}
+          isPrint={isPrint}
         />
       </td>
       <td className="hidden sm:table-cell px-3 py-3 truncate text-sm text-neutral-800 tabular-nums">{product.packsOrdered}</td>
@@ -86,7 +121,7 @@ export const TableRow: React.FC<TableRowProps> = ({
       </td>
 
       {/* Mobile View */}
-      <td className="sm:hidden px-3 py-3 space-y-1" colSpan={4}>
+      <td className={`sm:hidden px-3 py-3 space-y-1 ${mustGoCellClasses}`} colSpan={4}>
         <div className="flex justify-between items-start">
           <div className="max-w-[60%] pr-2">
             {details || product.manualDetails ? (
@@ -100,7 +135,10 @@ export const TableRow: React.FC<TableRowProps> = ({
                   </>
                 ) : (
                   <>
-                    {product.manualDetails?.category}
+                    <span className="inline-flex items-center gap-1.5">
+                      {unknownIcon}
+                      <span>{product.manualDetails?.category}</span>
+                    </span>
                     <div className="text-xs text-neutral-500 break-words font-normal">
                       {product.manualDetails?.description}
                     </div>
@@ -137,6 +175,9 @@ export const TableRow: React.FC<TableRowProps> = ({
                 code={product.productCode}
                 manualDetails={product.manualDetails}
                 location={codeLocation}
+                mustGo={mustGo}
+                onToggleMustGo={onToggleMustGo}
+                isPrint={isPrint}
               />
             </div>
           </div>

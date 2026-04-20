@@ -15,6 +15,7 @@ export interface Product {
 export interface OrderProduct {
   productCode: string;
   packsOrdered: string;
+  mustGo?: boolean;
   manualDetails?: {
     category: string;
     description: string;
@@ -35,6 +36,7 @@ export interface Profile {
 export interface Destination {
   id: string;
   name: string;
+  color?: string;
   created_at?: string;
 }
 

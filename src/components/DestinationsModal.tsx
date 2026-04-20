@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, MapPin } from 'lucide-react';
+import { Plus, Trash2, MapPin, Palette } from 'lucide-react';
 import { Destination } from '@/types';
 import { ModalTransition } from './transitions/ModalTransition';
 import { Button } from './ui/Button';
+import {
+  PALETTE_SLUGS,
+  PaletteSlug,
+  getDestinationAccent,
+  getPaletteSwatch,
+} from '@/utils/destinationColors';
 
 interface DestinationsModalProps {
   isOpen: boolean;
@@ -11,6 +17,7 @@ interface DestinationsModalProps {
   destinations: Destination[];
   onCreateDestination: (name: string) => Promise<Destination>;
   onDeleteDestination: (id: string) => Promise<void>;
+  onUpdateDestinationColor?: (id: string, color: string | null) => Promise<void>;
 }
 
 const inputClasses = 'w-full h-10 px-3 border border-neutral-200 rounded-lg bg-white text-sm text-neutral-900 placeholder:text-neutral-400 transition-colors focus:outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10';
@@ -20,12 +27,26 @@ export const DestinationsModal: React.FC<DestinationsModalProps> = ({
   onClose,
   destinations,
   onCreateDestination,
-  onDeleteDestination
+  onDeleteDestination,
+  onUpdateDestinationColor
 }) => {
   const [newName, setNewName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Destination | null>(null);
+  const [openColourFor, setOpenColourFor] = useState<string | null>(null);
+
+  const handlePickColour = async (id: string, slug: PaletteSlug | null) => {
+    if (!onUpdateDestinationColor) return;
+    try {
+      setLocalError(null);
+      await onUpdateDestinationColor(id, slug);
+      setOpenColourFor(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update colour';
+      setLocalError(message);
+    }
+  };
 
   const trimmedUpper = newName.trim().toUpperCase();
   const isDuplicate = trimmedUpper.length > 0 && destinations.some(d => d.name === trimmedUpper);
@@ -112,25 +133,99 @@ export const DestinationsModal: React.FC<DestinationsModalProps> = ({
           ) : (
             <div className="max-h-[320px] overflow-y-auto scrollbar-hide">
               <div className="flex flex-col gap-1.5 pr-1">
-                {destinations.map(dest => (
-                  <motion.div
-                    key={dest.id}
-                    layout
-                    className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-neutral-200/70 bg-white hover:bg-neutral-50/60 hover:border-neutral-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <MapPin className="w-3.5 h-3.5 text-neutral-400" />
-                      <span className="text-sm font-medium text-neutral-900">{dest.name}</span>
-                    </div>
-                    <button
-                      className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                      onClick={() => setToDelete(dest)}
-                      title="Delete"
+                {destinations.map(dest => {
+                  const accent = getDestinationAccent(dest.name, destinations);
+                  const hasOverride =
+                    typeof dest.color === 'string' &&
+                    (PALETTE_SLUGS as string[]).includes(dest.color);
+                  const isColourOpen = openColourFor === dest.id;
+                  return (
+                    <motion.div
+                      key={dest.id}
+                      layout
+                      className="rounded-lg border border-neutral-200/70 bg-white hover:border-neutral-300 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </motion.div>
-                ))}
+                      <div className="flex items-center justify-between px-3.5 py-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: accent.dot }}
+                            title={`${accent.label}${hasOverride ? '' : ' (auto)'}`}
+                          />
+                          <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span className="text-sm font-medium text-neutral-900 truncate">{dest.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {onUpdateDestinationColor && (
+                            <button
+                              className={`p-1.5 rounded-md transition-colors ${
+                                isColourOpen
+                                  ? 'text-neutral-900 bg-neutral-100'
+                                  : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50'
+                              }`}
+                              onClick={() => setOpenColourFor(isColourOpen ? null : dest.id)}
+                              title="Choose colour"
+                            >
+                              <Palette className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            onClick={() => setToDelete(dest)}
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      {isColourOpen && onUpdateDestinationColor && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                          className="overflow-hidden border-t border-neutral-100"
+                        >
+                          <div className="px-3.5 py-3 flex flex-wrap gap-1.5 items-center">
+                            <button
+                              onClick={() => handlePickColour(dest.id, null)}
+                              className={`h-6 w-6 rounded-full border transition-transform hover:scale-110 flex items-center justify-center text-[9px] font-semibold ${
+                                !hasOverride
+                                  ? 'border-neutral-900 text-neutral-900'
+                                  : 'border-neutral-300 text-neutral-500 hover:border-neutral-500'
+                              }`}
+                              title="Auto (pick from name)"
+                              style={{
+                                background:
+                                  'repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%) 50% / 8px 8px',
+                              }}
+                            >
+                              A
+                            </button>
+                            {PALETTE_SLUGS.map(slug => {
+                              const swatch = getPaletteSwatch(slug);
+                              const selected = hasOverride && dest.color === slug;
+                              return (
+                                <button
+                                  key={slug}
+                                  onClick={() => handlePickColour(dest.id, slug)}
+                                  className={`h-6 w-6 rounded-full transition-transform hover:scale-110 ${
+                                    selected
+                                      ? 'ring-2 ring-offset-2 ring-neutral-900'
+                                      : 'ring-1 ring-inset ring-black/5'
+                                  }`}
+                                  style={{ backgroundColor: swatch.bar }}
+                                  title={swatch.label}
+                                  aria-label={swatch.label}
+                                />
+                              );
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
           )}

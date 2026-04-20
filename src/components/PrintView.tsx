@@ -1,5 +1,5 @@
 import React from 'react';
-import { Location, Order, Product } from '@/types';
+import { Destination, Location, Order, Product } from '@/types';
 import { PrintHeader, PrintOrder } from './print';
 import { LoadingModal } from './ui/LoadingModal';
 import { sortOrdersByTime } from '@/utils/time';
@@ -10,13 +10,15 @@ interface PrintViewProps {
   orders: Order[];
   locations?: Location[];
   getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
+  destinations?: Destination[];
 }
 
 export const PrintView: React.FC<PrintViewProps> = ({
   productData,
   orders,
   locations = [],
-  getLocationsFor = () => ({})
+  getLocationsFor = () => ({}),
+  destinations = []
 }) => {
   const [loading, setLoading] = React.useState(true);
   const [error] = React.useState<string | null>(null);
@@ -75,6 +77,7 @@ export const PrintView: React.FC<PrintViewProps> = ({
                 productData={productData}
                 locations={locations}
                 locationsByIndex={getLocationsFor(order.id)}
+                destinations={destinations}
               />
             ))}
           </div>

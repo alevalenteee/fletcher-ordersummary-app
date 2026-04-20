@@ -78,6 +78,11 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
   const prevErrorIdsRef = useRef<Set<string>>(new Set());
   // Anchor for shift-click range selection — set on every checkbox click.
   const [anchorId, setAnchorId] = useState<string | null>(null);
+  // Captured on mousedown so we know whether the shift key was held at the
+  // start of a click. Reading it in the change handler is more reliable than
+  // fighting the browser's native toggle via preventDefault on a controlled
+  // checkbox, which doesn't stop React's onChange from firing.
+  const shiftHeldRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -212,30 +217,29 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
     setSelected(new Set());
   }, [selected]);
 
-  const toggleSelect = useCallback((rowId: string) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(rowId)) next.delete(rowId);
-      else next.add(rowId);
-      return next;
-    });
+  // Record whether shift was held at mousedown so the subsequent change
+  // event can make a decision about range-fill vs plain toggle.
+  const handleCheckboxMouseDown = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+    shiftHeldRef.current = e.shiftKey;
   }, []);
 
-  // Handle checkbox mousedown so we can detect shift-click BEFORE the native
-  // toggle fires. If shift is held and we have an anchor, select every row
-  // between the anchor and the clicked row (inclusive), matching the
-  // anchor's new state. Otherwise fall through to the normal toggle.
-  const handleCheckboxMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLInputElement>, rowId: string) => {
-      if (e.shiftKey && anchorId && anchorId !== rowId) {
-        e.preventDefault();
+  // Checkbox onChange handler. When shift was held and we have an anchor,
+  // we range-fill every row between the anchor and the clicked row inclusive
+  // and mirror the anchor's current selected state across that range. The
+  // browser will already have toggled the clicked row in the DOM — our state
+  // update then syncs React's `checked` prop back to the intended value, so
+  // the clicked row ends up correctly included in the range.
+  const handleCheckboxChange = useCallback(
+    (rowId: string) => {
+      const shifted = shiftHeldRef.current;
+      shiftHeldRef.current = false;
+      if (shifted && anchorId && anchorId !== rowId) {
         const ids = filteredRows.map(r => r._rowId);
         const a = ids.indexOf(anchorId);
         const b = ids.indexOf(rowId);
         if (a !== -1 && b !== -1) {
           const [from, to] = a < b ? [a, b] : [b, a];
           const range = ids.slice(from, to + 1);
-          // Mirror the anchor's current selected state across the range.
           const anchorSelected = selected.has(anchorId);
           setSelected(prev => {
             const next = new Set(prev);
@@ -246,11 +250,25 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
             return next;
           });
         }
+        // Keep the original anchor so the user can shift-click again to
+        // refine the range from the same starting point.
+        return;
       }
+      setSelected(prev => {
+        const next = new Set(prev);
+        if (next.has(rowId)) next.delete(rowId);
+        else next.add(rowId);
+        return next;
+      });
       setAnchorId(rowId);
     },
     [anchorId, filteredRows, selected]
   );
+
+  const clearSelection = useCallback(() => {
+    setSelected(new Set());
+    setAnchorId(null);
+  }, []);
 
   const toggleSelectAllFiltered = useCallback(() => {
     const filteredIds = filteredRows.map(r => r._rowId);
@@ -462,11 +480,13 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
               <div className="ml-auto">
                 <button
                   type="button"
-                  onClick={() => setSelected(new Set())}
-                  className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-md transition-colors"
+                  onClick={clearSelection}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-md transition-colors"
                   aria-label="Clear selection"
+                  title="Deselect all rows"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3 h-3" />
+                  Clear
                 </button>
               </div>
             </div>
@@ -540,8 +560,8 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onMouseDown={(e) => handleCheckboxMouseDown(e, row._rowId)}
-                        onChange={() => toggleSelect(row._rowId)}
+                        onMouseDown={handleCheckboxMouseDown}
+                        onChange={() => handleCheckboxChange(row._rowId)}
                         className="rounded border-neutral-300"
                         aria-label="Select row (shift-click to select range)"
                       />

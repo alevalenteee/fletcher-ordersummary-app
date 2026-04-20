@@ -42,14 +42,16 @@ function MainApp() {
     error: ordersError,
     handleOrderSubmit,
     handleEditOrder,
-    handleDeleteOrder
+    handleDeleteOrder,
+    updateOrderProducts
   } = useOrders(currentProfile?.id);
 
   // Destinations (globally shared, not profile-scoped)
   const {
     destinations,
     createDestination,
-    deleteDestination
+    deleteDestination,
+    updateDestinationColor
   } = useDestinations();
 
   // Locations catalogue (hardcoded-seeded, read-only)
@@ -67,6 +69,15 @@ function MainApp() {
     const target = orders[index];
     await handleDeleteOrder(index);
     clearOrderLocations(target?.id);
+  };
+
+  const handleToggleMustGo = async (orderIndex: number, productIndex: number) => {
+    const target = orders[orderIndex];
+    if (!target?.id) return;
+    const nextProducts = target.products.map((p, i) =>
+      i === productIndex ? { ...p, mustGo: !p.mustGo } : p
+    );
+    await updateOrderProducts(orderIndex, nextProducts);
   };
 
   // Handle profile switching
@@ -102,6 +113,7 @@ function MainApp() {
                 productData={productData}
                 locations={locations}
                 getLocationsFor={getLocationsFor}
+                destinations={destinations}
               />
             }
           />
@@ -128,9 +140,11 @@ function MainApp() {
                 destinations={destinations}
                 onCreateDestination={createDestination}
                 onDeleteDestination={deleteDestination}
+                onUpdateDestinationColor={updateDestinationColor}
                 locations={locations}
                 getLocationsFor={getLocationsFor}
                 onSubmitOrderLocations={setOrderLocationsDraft}
+                onToggleMustGo={handleToggleMustGo}
               />
             }
           />

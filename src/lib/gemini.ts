@@ -25,11 +25,15 @@ const ORDER_SCHEMA = {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
-        required: ['productCode', 'packsOrdered'],
+        // description is required on every product. If the code isn't in our
+        // catalogue, this is the only thing giving staff a human-readable
+        // name on screen and in print, so we force the model to always fill
+        // it in rather than letting it decide when it's "needed".
+        required: ['productCode', 'packsOrdered', 'description'],
         properties: {
           productCode: { type: Type.STRING },
           packsOrdered: { type: Type.STRING },
-          description: { type: Type.STRING, nullable: true },
+          description: { type: Type.STRING },
         },
       },
     },
@@ -54,7 +58,10 @@ export async function analyzePDFContent(
 - trailerType: from the VEHICLE section (e.g. B_DOUBLE, TRUCK, SEMI, RIGID, PANTECH).
 - trailerSize: cubic-metre capacity from the VEHICLE section (e.g. 173M3, 120M3).
 - time: the HH:MM 24-hour time, usually top-right of the page. If absent, use 00:00.
-- products: every line item with a product code starting with 10, 20 or 40 and its pack quantity. For any code you do not recognise, fill description with a short product type plus any visible dimensions or codes (include codes in parentheses like "(4008080)").`;
+- products: every line item with a product code starting with 10, 20 or 40. For every product return:
+    • productCode: the main product code.
+    • packsOrdered: the pack quantity.
+    • description: REQUIRED for every product — copy the product description / name text that appears on the manifest next to this code (e.g. "CEILING R4.1 580mm", "PINKSOUNDBREAK R2.7 430"). Include any visible dimensions, R-value, colour, and any secondary code in round parentheses like "(4008080)". Never leave this blank, even if the code looks familiar.`;
 
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
@@ -154,17 +161,32 @@ export async function analyzePDFContent(
         );
 
         if (!isValidProduct) {
-          const description = product.description || 'Unknown product';
+          // Gemini is now required by the schema to return a description for
+          // every product. We still defensively fall back in case the model
+          // ever breaks the contract so the row remains useful to the user.
+          const rawDescription = (product.description ?? '').trim();
 
-          // Extract any codes in parentheses from the description
-          const codeInParenthesesMatch = description.match(/\(([^)]+)\)/);
-          const secondaryCode = codeInParenthesesMatch ? codeInParenthesesMatch[1].trim() : '';
+          // Extract any secondary code in parentheses (e.g. "(4008080)") so
+          // it renders in the CODE column, then remove it from the visible
+          // description to avoid showing the same code twice on the row.
+          const codeInParenthesesMatch = rawDescription.match(/\(([^)]+)\)/);
+          const secondaryCode = codeInParenthesesMatch
+            ? codeInParenthesesMatch[1].trim()
+            : '';
+          const cleanedDescription = rawDescription
+            .replace(/\s*\([^)]*\)\s*/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
 
+          // The bold line in the row is `category`. Keep that as the
+          // "Unknown product" tag so rows flagged for catalogue attention
+          // stand out at a glance, and put the real PDF text in the muted
+          // subtitle so staff can still identify the item.
           console.warn(`Unknown product code found: ${code}`);
           product.manualDetails = {
             type: 'Unknown',
             category: 'Unknown Product',
-            description,
+            description: cleanedDescription || 'No description provided',
             secondaryCode,
             packsPerBale: 1,
           };

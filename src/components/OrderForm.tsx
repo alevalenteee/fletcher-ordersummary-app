@@ -15,6 +15,7 @@ interface OrderFormProps {
   destinations: Destination[];
   onCreateDestination: (name: string) => Promise<Destination>;
   onDeleteDestination: (id: string) => Promise<void>;
+  onUpdateDestinationColor?: (id: string, color: string | null) => Promise<void>;
 }
 
 const TIMES = Array.from({ length: 24 }, (_, i) => 
@@ -27,7 +28,8 @@ export const OrderForm: React.FC<OrderFormProps> = ({
   initialOrder,
   destinations,
   onCreateDestination,
-  onDeleteDestination
+  onDeleteDestination,
+  onUpdateDestinationColor
 }) => {
   const [destination, setDestination] = React.useState('');
   const [customDestination, setCustomDestination] = React.useState('');
@@ -351,6 +353,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
         destinations={destinations}
         onCreateDestination={onCreateDestination}
         onDeleteDestination={onDeleteDestination}
+        onUpdateDestinationColor={onUpdateDestinationColor}
       />
     </div>
   );

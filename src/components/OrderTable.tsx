@@ -7,16 +7,20 @@ interface OrderTableProps {
   order: Order;
   productData: Product[];
   onUpdateProduct?: (index: number, product: OrderProduct) => void;
+  onToggleMustGo?: (productIndex: number) => Promise<void> | void;
   locations?: Location[];
   locationsByIndex?: Record<number, string[]>;
+  isPrint?: boolean;
 }
 
-export const OrderTable: React.FC<OrderTableProps> = ({ 
-  order, 
+export const OrderTable: React.FC<OrderTableProps> = ({
+  order,
   productData,
   onUpdateProduct,
+  onToggleMustGo,
   locations = [],
-  locationsByIndex = {}
+  locationsByIndex = {},
+  isPrint = false
 }) => (
   <div className="overflow-x-auto print:overflow-visible">
     <table className="w-full border-collapse">
@@ -37,8 +41,10 @@ export const OrderTable: React.FC<OrderTableProps> = ({
               (updatedProduct) => onUpdateProduct(index, updatedProduct) : 
               undefined
             }
+            onToggleMustGo={onToggleMustGo ? () => onToggleMustGo(index) : undefined}
             locations={locationsByIndex[index]}
             allLocations={locations}
+            isPrint={isPrint}
           />
         ))}
       </tbody>

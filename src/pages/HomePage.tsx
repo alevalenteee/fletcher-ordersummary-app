@@ -27,9 +27,11 @@ interface HomePageProps {
   destinations?: Destination[];
   onCreateDestination?: (name: string) => Promise<Destination>;
   onDeleteDestination?: (id: string) => Promise<void>;
+  onUpdateDestinationColor?: (id: string, color: string | null) => Promise<void>;
   locations?: Location[];
   getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
   onSubmitOrderLocations?: (orderId: string, draft: Record<number, string[]>) => void;
+  onToggleMustGo?: (orderIndex: number, productIndex: number) => Promise<void> | void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -52,9 +54,11 @@ export const HomePage: React.FC<HomePageProps> = ({
   destinations = [],
   onCreateDestination = async () => { throw new Error('onCreateDestination not provided'); },
   onDeleteDestination = async () => {},
+  onUpdateDestinationColor,
   locations = [],
   getLocationsFor = () => ({}),
-  onSubmitOrderLocations = () => {}
+  onSubmitOrderLocations = () => {},
+  onToggleMustGo
 }) => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -137,6 +141,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         destinations={destinations}
         onCreateDestination={onCreateDestination}
         onDeleteDestination={onDeleteDestination}
+        onUpdateDestinationColor={onUpdateDestinationColor}
       />
       
       <OrdersList
@@ -144,9 +149,11 @@ export const HomePage: React.FC<HomePageProps> = ({
         productData={productData}
         onEditOrder={onEditOrder}
         onDeleteOrder={onDeleteOrder}
+        destinations={destinations}
         locations={locations}
         getLocationsFor={getLocationsFor}
         onSubmitOrderLocations={onSubmitOrderLocations}
+        onToggleMustGo={onToggleMustGo}
       />
     </>
   );

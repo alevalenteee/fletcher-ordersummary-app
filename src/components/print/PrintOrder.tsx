@@ -1,20 +1,23 @@
 import React from 'react';
-import { Location, Order, Product } from '@/types';
+import { Destination, Location, Order, Product } from '@/types';
 import { OrderTable } from '../OrderTable';
 import { formatTrailerInfo } from '@/lib/utils';
+import { getDestinationAccent } from '@/utils/destinationColors';
 
 interface PrintOrderProps {
   order: Order;
   productData: Product[];
   locations?: Location[];
   locationsByIndex?: Record<number, string[]>;
+  destinations?: Destination[];
 }
 
 export const PrintOrder: React.FC<PrintOrderProps> = ({
   order,
   productData,
   locations = [],
-  locationsByIndex = {}
+  locationsByIndex = {},
+  destinations = []
 }) => {
   const hasMeta =
     order.manifestNumber ||
@@ -22,8 +25,13 @@ export const PrintOrder: React.FC<PrintOrderProps> = ({
     order.trailerType ||
     order.trailerSize;
 
+  const accent = getDestinationAccent(order.destination, destinations);
+
   return (
-    <div className="print-order bg-white border border-neutral-200/70 rounded-card shadow-card p-6 print:p-4 print:shadow-none">
+    <div
+      style={{ borderLeftColor: accent.bar }}
+      className="print-order bg-white border border-neutral-200/70 border-l-[3px] rounded-card shadow-card p-6 print:p-4 print:shadow-none"
+    >
       <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
         <h3 className="text-lg font-semibold tracking-tight text-neutral-900 whitespace-nowrap">
           {order.destination}
@@ -60,6 +68,7 @@ export const PrintOrder: React.FC<PrintOrderProps> = ({
         productData={productData}
         locations={locations}
         locationsByIndex={locationsByIndex}
+        isPrint
       />
     </div>
   );

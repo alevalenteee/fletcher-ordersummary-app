@@ -99,11 +99,37 @@ export function useDestinations() {
     }
   };
 
+  // Store a palette slug (e.g. "emerald") or null to clear the override and
+  // fall back to the hash-derived colour. We update optimistically so the UI
+  // feels instant and roll back on error.
+  const updateDestinationColor = async (id: string, color: string | null) => {
+    const previous = destinations.find(d => d.id === id);
+    setDestinations(prev =>
+      prev.map(d => (d.id === id ? { ...d, color: color ?? undefined } : d))
+    );
+    try {
+      const { error } = await supabase
+        .from('destinations')
+        .update({ color })
+        .eq('id', id);
+      if (error) throw error;
+      setError(null);
+    } catch (err) {
+      console.error('Error updating destination colour:', err);
+      if (previous) {
+        setDestinations(prev => prev.map(d => (d.id === id ? previous : d)));
+      }
+      setError('Failed to update destination colour');
+      throw err;
+    }
+  };
+
   return {
     destinations,
     loading,
     error,
     createDestination,
-    deleteDestination
+    deleteDestination,
+    updateDestinationColor
   };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Order } from '@/types';
+import { Order, OrderProduct } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 export function useOrders(profileId?: string) {
@@ -186,6 +186,32 @@ export function useOrders(profileId?: string) {
     }
   };
 
+  // Replace just the products[] JSON on a single order. Used for in-place
+  // toggles like Must Go so we avoid round-tripping through the whole
+  // edit-form flow. Updates state optimistically and rolls back on error.
+  const updateOrderProducts = async (orderIndex: number, products: OrderProduct[]) => {
+    const target = orders[orderIndex];
+    if (!target?.id) return;
+    const previous = target.products;
+    setOrders(prev =>
+      prev.map((o, i) => (i === orderIndex ? { ...o, products } : o))
+    );
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ products: JSON.parse(JSON.stringify(products)) })
+        .eq('id', target.id);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating order products:', err);
+      setOrders(prev =>
+        prev.map((o, i) => (i === orderIndex ? { ...o, products: previous } : o))
+      );
+      setError('Failed to update order');
+      throw err;
+    }
+  };
+
   // Refresh orders
   const refreshOrders = async () => {
     await fetchOrders(profileId);
@@ -323,6 +349,7 @@ export function useOrders(profileId?: string) {
     handleDeleteOrder,
     refreshOrders,
     handleSaveOrders,
-    updateOrdersProfile
+    updateOrdersProfile,
+    updateOrderProducts
   };
 }

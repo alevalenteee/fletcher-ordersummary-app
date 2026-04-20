@@ -1,16 +1,17 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Location, Order, Product } from '@/types';
+import { Destination, Location, Order, Product } from '@/types';
 import { OrderTable } from './OrderTable';
+import { TodayAtAGlance } from './TodayAtAGlance';
 import { Button } from './ui/Button';
 import { ConfirmationModal } from './ui/ConfirmationModal';
-import { FadeTransition } from './transitions/FadeTransition';
 import { LoadingModal } from './ui/LoadingModal';
 import { Printer, Edit2, Trash2, Trash, Download, Package, MapPin } from 'lucide-react';
 import { downloadExcel } from '@/utils/export';
 import { sortOrdersByTime } from '@/utils/time';
 import { formatTrailerInfo } from '@/lib/utils';
+import { getDestinationAccent } from '@/utils/destinationColors';
 import { LocationsModal } from './locations';
 
 interface OrdersListProps {
@@ -18,9 +19,11 @@ interface OrdersListProps {
   productData: Product[];
   onEditOrder: (index: number) => void;
   onDeleteOrder: (index: number) => void;
+  destinations?: Destination[];
   locations?: Location[];
   getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
   onSubmitOrderLocations?: (orderId: string, draft: Record<number, string[]>) => void;
+  onToggleMustGo?: (orderIndex: number, productIndex: number) => Promise<void> | void;
 }
 
 export const OrdersList: React.FC<OrdersListProps> = ({
@@ -28,48 +31,73 @@ export const OrdersList: React.FC<OrdersListProps> = ({
   productData,
   onEditOrder,
   onDeleteOrder,
+  destinations = [],
   locations = [],
   getLocationsFor = () => ({}),
-  onSubmitOrderLocations = () => {}
+  onSubmitOrderLocations = () => {},
+  onToggleMustGo
 }) => {
   const navigate = useNavigate();
-  const [deletingIndex, setDeletingIndex] = React.useState<number | null>(null);
   const [showDeleteAllConfirmation, setShowDeleteAllConfirmation] = React.useState(false);
   const [isDeletingAll, setIsDeletingAll] = React.useState(false);
   const [updatingOrder, setUpdatingOrder] = React.useState<number | null>(null);
   const [showLocationsModal, setShowLocationsModal] = React.useState(false);
+  // Track orders that have been clicked for deletion but whose backend call
+  // hasn't returned yet. We hide them from the list immediately so the exit
+  // animation starts on click rather than after the Supabase round-trip.
+  const [pendingDeleteIds, setPendingDeleteIds] = React.useState<Set<string>>(new Set());
 
-  // Sort orders by time
+  // Sort orders by time. We filter out orders that are mid-delete so they
+  // animate out the moment the user clicks delete — AnimatePresence picks up
+  // the removal from this array and runs the exit transition.
   const sortedOrders = React.useMemo(() => {
-    // Use the proper time sorting function that handles shift patterns
     const timeSortedOrders = sortOrdersByTime(orders);
-    // Create an array with their original indices for tracking
-    return timeSortedOrders.map((order) => ({
-      order,
-      originalIndex: orders.findIndex(o => o === order)
-    }));
-  }, [orders]);
+    return timeSortedOrders
+      .map((order) => ({
+        order,
+        originalIndex: orders.findIndex(o => o === order),
+      }))
+      .filter(({ order }) => !(order.id && pendingDeleteIds.has(order.id)));
+  }, [orders, pendingDeleteIds]);
 
-  const handleDelete = (sortedIndex: number) => {
-    setDeletingIndex(sortedIndex);
-    // Actual deletion happens after animation
+  const handleDelete = async (originalIndex: number) => {
+    const target = orders[originalIndex];
+    if (target?.id) {
+      setPendingDeleteIds(prev => {
+        const next = new Set(prev);
+        next.add(target.id as string);
+        return next;
+      });
+    }
+    try {
+      await onDeleteOrder(originalIndex);
+    } finally {
+      if (target?.id) {
+        setPendingDeleteIds(prev => {
+          if (!prev.has(target.id as string)) return prev;
+          const next = new Set(prev);
+          next.delete(target.id as string);
+          return next;
+        });
+      }
+    }
   };
 
   const handleDeleteAll = async () => {
     try {
       setIsDeletingAll(true);
       setShowDeleteAllConfirmation(false);
-      
-      // Delete orders one by one to trigger animations
+
+      // Walk from the end so indices stay valid as items are removed. A small
+      // gap between deletions produces a pleasant cascade instead of every
+      // card vanishing simultaneously.
       for (let i = orders.length - 1; i >= 0; i--) {
-        setDeletingIndex(i);
-        await new Promise(resolve => setTimeout(resolve, 300)); // Wait for animation
         await onDeleteOrder(i);
+        await new Promise(resolve => setTimeout(resolve, 90));
       }
     } catch (error) {
       console.error('Error deleting all orders:', error);
     } finally {
-      setDeletingIndex(null);
       setIsDeletingAll(false);
     }
   };
@@ -159,27 +187,43 @@ export const OrdersList: React.FC<OrdersListProps> = ({
         </div>
       )}
 
-      {sortedOrders.map(({ order, originalIndex }, sortedIndex) => (
-        <FadeTransition
-          key={sortedIndex}
-          in={deletingIndex !== sortedIndex}
-          onExited={() => {
-            onDeleteOrder(originalIndex);
-            setDeletingIndex(null);
-          }}
-        >
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.28,
-              ease: [0.22, 1, 0.36, 1],
-              delay: Math.min(sortedIndex * 0.03, 0.18),
-            }}
-            className={`group bg-white p-6 rounded-card border border-neutral-200/70 shadow-card transition-shadow duration-200 hover:shadow-card-hover ${
-              deletingIndex === sortedIndex ? 'opacity-50' : ''
-            }`}
-          >
+      {orders.length > 0 && (
+        <TodayAtAGlance
+          orders={orders}
+          productData={productData}
+          destinations={destinations}
+        />
+      )}
+
+      <AnimatePresence mode="popLayout" initial={false}>
+        {sortedOrders.map(({ order, originalIndex }, sortedIndex) => {
+          // Stable key: prefer the Supabase id so AnimatePresence can track
+          // the same card across re-renders when the array shifts. Falling
+          // back to a composite is fine for freshly-analysed orders that
+          // haven't been persisted yet.
+          const key = order.id ?? `fallback-${order.destination}-${order.time}-${order.manifestNumber ?? ''}`;
+          const accent = getDestinationAccent(order.destination, destinations);
+          return (
+            <motion.div
+              key={key}
+              layout
+              initial={{ opacity: 0, y: 14, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{
+                opacity: 0,
+                y: -6,
+                scale: 0.97,
+                transition: { duration: 0.22, ease: [0.4, 0, 1, 1] },
+              }}
+              transition={{
+                duration: 0.32,
+                ease: [0.22, 1, 0.36, 1],
+                delay: Math.min(sortedIndex * 0.04, 0.2),
+                layout: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+              }}
+              style={{ borderLeftColor: accent.bar }}
+              className="group bg-white p-6 rounded-card border border-neutral-200/70 border-l-[3px] shadow-card transition-shadow duration-200 hover:shadow-card-hover"
+            >
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
               <div className="space-y-1 w-full sm:w-auto min-w-0">
                 <h3 className="text-lg font-semibold tracking-tight text-neutral-900 truncate">
@@ -222,7 +266,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleDelete(sortedIndex)}
+                  onClick={() => handleDelete(originalIndex)}
                   className="flex items-center gap-1.5 flex-1 sm:flex-initial justify-center text-red-600 hover:text-red-700 hover:border-red-200 hover:bg-red-50"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -236,10 +280,16 @@ export const OrdersList: React.FC<OrdersListProps> = ({
               onUpdateProduct={() => handleUpdateProduct(sortedIndex)}
               locations={locations}
               locationsByIndex={getLocationsFor(order.id)}
+              onToggleMustGo={
+                onToggleMustGo
+                  ? (productIndex) => onToggleMustGo(originalIndex, productIndex)
+                  : undefined
+              }
             />
           </motion.div>
-        </FadeTransition>
-      ))}
+          );
+        })}
+      </AnimatePresence>
 
       <ConfirmationModal
         isOpen={showDeleteAllConfirmation}
