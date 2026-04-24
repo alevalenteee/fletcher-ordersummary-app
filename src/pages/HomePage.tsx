@@ -3,9 +3,11 @@ import { FileUpload } from '@/components/FileUpload';
 import { OrderForm } from '@/components/OrderForm';
 import { OrdersList } from '@/components/OrdersList';
 import { PDFAnalyzer } from '@/components/PDFAnalyzer';
-import { Destination, Location, Order, Product, Profile } from '@/types';
+import { Destination, Location, Order, OrderProduct, Product, Profile } from '@/types';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import { ProfileSelector } from '@/components/ProfileSelector';
+import { ProductCatalogueModal } from '@/components/product-catalogue';
+import { seedCatalogueRowFromOrderProduct } from '@/utils/catalogue';
 
 interface HomePageProps {
   productData: Product[];
@@ -62,6 +64,55 @@ export const HomePage: React.FC<HomePageProps> = ({
 }) => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  // Catalogue modal lives here (rather than inside FileUpload) so the
+  // "Add to database" action on unknown order lines can open it too, with
+  // the relevant row prefilled. The prefill is cleared on close so a
+  // subsequent plain "Edit catalogue" click doesn't resurrect stale seed
+  // data.
+  const [catalogueOpen, setCatalogueOpen] = React.useState(false);
+  const [catalogueSeed, setCatalogueSeed] = React.useState<Partial<Product> | undefined>(undefined);
+  const [catalogueStatus, setCatalogueStatus] = React.useState<
+    { type: 'success' | 'error'; message: string } | null
+  >(null);
+
+  const openCatalogue = React.useCallback((seed?: Partial<Product>) => {
+    setCatalogueStatus(null);
+    setCatalogueSeed(seed);
+    setCatalogueOpen(true);
+  }, []);
+
+  const closeCatalogue = React.useCallback(() => {
+    setCatalogueOpen(false);
+    setCatalogueSeed(undefined);
+  }, []);
+
+  const handleAddProductToCatalogue = React.useCallback(
+    (orderProduct: OrderProduct) => {
+      openCatalogue(seedCatalogueRowFromOrderProduct(orderProduct));
+    },
+    [openCatalogue]
+  );
+
+  const handleSaveCatalogue = React.useCallback(
+    async (next: Product[]) => {
+      try {
+        await Promise.resolve(onSaveDefault(next));
+        onDataLoaded(next);
+        setCatalogueStatus({
+          type: 'success',
+          message: `Saved ${next.length} product${next.length === 1 ? '' : 's'}`,
+        });
+      } catch (err) {
+        setCatalogueStatus({
+          type: 'error',
+          message: err instanceof Error ? err.message : 'Failed to save catalogue',
+        });
+        throw err;
+      }
+    },
+    [onDataLoaded, onSaveDefault]
+  );
+
   // Track submitting state for orders
   const handleOrderSubmitWithLoading = async (order: Order) => {
     setIsSubmitting(true);
@@ -108,10 +159,10 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       )}
 
-      <FileUpload 
-        onDataLoaded={onDataLoaded}
-        onSaveDefault={onSaveDefault}
+      <FileUpload
         productData={productData}
+        onOpenCatalogue={openCatalogue}
+        status={catalogueStatus}
         className="md:block"
       />
       
@@ -154,6 +205,15 @@ export const HomePage: React.FC<HomePageProps> = ({
         getLocationsFor={getLocationsFor}
         onSubmitOrderLocations={onSubmitOrderLocations}
         onToggleMustGo={onToggleMustGo}
+        onAddProductToCatalogue={handleAddProductToCatalogue}
+      />
+
+      <ProductCatalogueModal
+        isOpen={catalogueOpen}
+        onClose={closeCatalogue}
+        products={productData}
+        onSave={handleSaveCatalogue}
+        initialNewRow={catalogueSeed}
       />
     </>
   );

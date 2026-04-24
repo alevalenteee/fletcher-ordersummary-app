@@ -28,8 +28,9 @@ export const ProductCode: React.FC<ProductCodeProps> = ({
     <span className="italic text-neutral-500 ml-1">{location}</span>
   ) : null;
 
-  // Interactive screen flag — hidden on the print view (the pill badge
-  // takes over there) and when actually printing.
+  // Interactive screen flag — hidden on the print view (the flag now
+  // renders to the left of the PRODUCT column instead) and when actually
+  // printing the OrdersList directly.
   const flag = onToggleMustGo && !isPrint ? (
     <button
       type="button"
@@ -53,26 +54,11 @@ export const ProductCode: React.FC<ProductCodeProps> = ({
     </button>
   ) : null;
 
-  // Print-view / paper treatment: a small red "MUST GO" pill with a flag
-  // icon. Border + text colour print reliably even without "background
-  // graphics" enabled, so this badge survives the trip to paper intact.
-  const mustGoBadge = mustGo && isPrint ? (
-    <span
-      className="mr-1.5 inline-flex items-center gap-1 align-middle rounded-full border border-red-500 px-1.5 py-[1px] text-[10px] font-bold uppercase tracking-wide text-red-600 leading-none"
-      aria-label="Must go"
-    >
-      <Flag
-        className="w-2.5 h-2.5 fill-red-600 text-red-600"
-        strokeWidth={2.25}
-      />
-      Must go
-    </span>
-  ) : null;
-
-  // Small flag-only fallback when the badge isn't showing (i.e. the non-
-  // print OrdersList). This is the quiet on-paper marker kept from before
-  // so paper copies still show priority when users print the OrdersList
-  // directly rather than via the Print page.
+  // When the user prints the OrdersList directly (isPrint=false + @media
+  // print), render a small quiet black flag next to the code so the
+  // priority is still visible on paper. The dedicated PrintView handles
+  // its own flag in the PRODUCT column at TableRow level, so this branch
+  // intentionally skips isPrint=true.
   const printFlag = mustGo && !isPrint ? (
     <Flag
       className="hidden print:inline-block align-middle mr-1 w-3 h-3 fill-black text-black"
@@ -102,9 +88,8 @@ export const ProductCode: React.FC<ProductCodeProps> = ({
   }
 
   return (
-    <span className={`inline-flex items-center ${mustGo && isPrint ? 'font-semibold text-red-700' : ''}`}>
+    <span className="inline-flex items-center">
       {flag}
-      {mustGoBadge}
       {printFlag}
       <span>{codeContent}</span>
     </span>

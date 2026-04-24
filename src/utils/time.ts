@@ -30,3 +30,17 @@ export function sortOrdersByTime<T extends { time: string }>(orders: T[]): T[] {
     return minutesA - minutesB;
   });
 }
+
+// Human-readable date used by the Today-at-a-glance strip and the print
+// header (e.g. "FRI, 24 APR 2026"). Kept in utils so both call sites stay in
+// sync if we ever tweak the format.
+export function formatTodayDate(date: Date = new Date()): string {
+  return date
+    .toLocaleDateString('en-AU', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
+    .toUpperCase();
+}

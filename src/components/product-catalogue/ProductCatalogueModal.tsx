@@ -10,6 +10,11 @@ interface ProductCatalogueModalProps {
   onClose: () => void;
   products: Product[];
   onSave: (products: Product[]) => Promise<void> | void;
+  // When supplied, a new draft row is prepended to the top of the editor
+  // (prefilled with whatever columns are provided) every time the modal
+  // opens. Used by the "Add to database" action on unknown order lines so
+  // the user lands on a ready-to-review row instead of a blank form.
+  initialNewRow?: Partial<Product>;
 }
 
 // Row with a stable client-side id so React + selection tracks correctly
@@ -63,6 +68,7 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
   onClose,
   products,
   onSave,
+  initialNewRow,
 }) => {
   const [rows, setRows] = useState<DraftRow[]>([]);
   const [search, setSearch] = useState('');
@@ -86,10 +92,38 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset draft whenever the modal opens.
+  // Reset draft whenever the modal opens. If the caller asked us to open
+  // with a prefilled new row (e.g. from the "Add to database" action on an
+  // unknown product), prepend it so the user lands on their row straight
+  // away, with the new-row tint still applied.
   useEffect(() => {
     if (!isOpen) return;
-    setRows(toDraft(products));
+    const base = toDraft(products);
+    if (initialNewRow) {
+      const seededRow: DraftRow = {
+        _rowId: makeRowId(),
+        _isNew: true,
+        category: initialNewRow.category ?? '',
+        rValue: initialNewRow.rValue ?? '',
+        newCode: initialNewRow.newCode ?? '',
+        oldCode: initialNewRow.oldCode ?? '',
+        packsPerBale:
+          typeof initialNewRow.packsPerBale === 'number' && initialNewRow.packsPerBale > 0
+            ? initialNewRow.packsPerBale
+            : 1,
+        width: initialNewRow.width ?? '',
+        type: initialNewRow.type,
+      };
+      setRows([seededRow, ...base]);
+      // Scroll to top in the next frame so the seeded row is visible even
+      // when the catalogue is long. queueMicrotask fires before the scroll
+      // container has its new contents, so use requestAnimationFrame.
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      });
+    } else {
+      setRows(base);
+    }
     setSearch('');
     setSelected(new Set());
     setImportError(null);
@@ -97,7 +131,7 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
     setAnchorId(null);
     setResolvedIds(new Set());
     prevErrorIdsRef.current = new Set();
-  }, [isOpen, products]);
+  }, [isOpen, products, initialNewRow]);
 
   const errors = useMemo(() => validateRows(rows), [rows]);
   const errorCount = Object.keys(errors).length;

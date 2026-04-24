@@ -2,7 +2,7 @@ import React from 'react';
 import { Destination, Location, Order, Product } from '@/types';
 import { PrintHeader, PrintOrder } from './print';
 import { LoadingModal } from './ui/LoadingModal';
-import { sortOrdersByTime } from '@/utils/time';
+import { sortOrdersByTime, formatTodayDate } from '@/utils/time';
 import '../styles/print.css';
 
 interface PrintViewProps {
@@ -27,6 +27,11 @@ export const PrintView: React.FC<PrintViewProps> = ({
   const sortedOrders = React.useMemo(() => {
     return sortOrdersByTime(orders);
   }, [orders]);
+
+  // Date shown on the right of the "Orders Summary" print header. Resolved
+  // at print time so what lands on paper matches the day the run sheet is
+  // printed, not whenever the page first mounted.
+  const printDate = React.useMemo(() => formatTodayDate(), []);
 
   React.useEffect(() => {
     document.title = 'Orders Summary - Print View';
@@ -64,9 +69,14 @@ export const PrintView: React.FC<PrintViewProps> = ({
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0">
           <div className="hidden print:block print:mb-5">
-            <h1 className="text-lg font-semibold tracking-tight text-neutral-900">
-              Orders Summary
-            </h1>
+            <div className="flex items-baseline justify-between gap-4">
+              <h1 className="text-lg font-semibold tracking-tight text-neutral-900">
+                Orders Summary
+              </h1>
+              <span className="text-xs font-medium uppercase tracking-wider text-neutral-500 tabular-nums">
+                {printDate}
+              </span>
+            </div>
           </div>
 
           <div className="space-y-4 print:space-y-5">

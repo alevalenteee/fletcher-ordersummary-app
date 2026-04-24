@@ -4,49 +4,33 @@ import { Product } from '@/types';
 import { Check, Database, Download, Pencil } from 'lucide-react';
 import { Button } from './ui/Button';
 import { cn } from '@/lib/utils';
-import { ProductCatalogueModal } from './product-catalogue';
 
 interface FileUploadProps {
-  onDataLoaded: (data: Product[]) => void;
-  onSaveDefault: (data: Product[]) => Promise<void> | void;
   productData: Product[];
+  // Parent (HomePage) owns the ProductCatalogueModal so the "Add to
+  // database" action on unknown order lines can open the same modal with
+  // prefilled data. This card just triggers the open with no seed.
+  onOpenCatalogue: () => void;
+  // Optional toast-style status surfaced under the card after a save.
+  // Driven by the parent since the save flow now lives up there too.
+  status?: { type: 'success' | 'error'; message: string } | null;
   className?: string;
 }
 
-// Kept the filename for import stability; the card is now "Product data" and
-// owns the ProductCatalogueModal that handles editing, CSV import, and CSV
-// export. The CSV download stays on the card for quick access.
+// Kept the filename for import stability; the card is now "Product data".
+// Modal ownership was hoisted to HomePage so the catalogue editor can be
+// opened from multiple entry points (this card + unknown product rows).
 export const FileUpload: React.FC<FileUploadProps> = ({
-  onDataLoaded,
-  onSaveDefault,
   productData,
+  onOpenCatalogue,
+  status,
   className,
 }) => {
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [status, setStatus] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
   const productCount = productData.length;
 
   const handleDownload = () => {
     if (productCount === 0) return;
     downloadCSV(productData);
-  };
-
-  const handleSaveCatalogue = async (next: Product[]) => {
-    try {
-      await Promise.resolve(onSaveDefault(next));
-      onDataLoaded(next);
-      setStatus({
-        type: 'success',
-        message: `Saved ${next.length} product${next.length === 1 ? '' : 's'}`,
-      });
-    } catch (err) {
-      setStatus({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Failed to save catalogue',
-      });
-      throw err;
-    }
   };
 
   return (
@@ -80,10 +64,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               Download
             </Button>
             <Button
-              onClick={() => {
-                setStatus(null);
-                setModalOpen(true);
-              }}
+              onClick={onOpenCatalogue}
               size="sm"
               className="flex items-center gap-1.5"
             >
@@ -106,13 +87,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           </div>
         )}
       </div>
-
-      <ProductCatalogueModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        products={productData}
-        onSave={handleSaveCatalogue}
-      />
     </div>
   );
 };

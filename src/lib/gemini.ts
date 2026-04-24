@@ -61,7 +61,7 @@ export async function analyzePDFContent(
 - products: every line item with a product code starting with 10, 20 or 40. For every product return:
     • productCode: the main product code.
     • packsOrdered: the pack quantity.
-    • description: REQUIRED for every product — copy the product description / name text that appears on the manifest next to this code (e.g. "CEILING R4.1 580mm", "PINKSOUNDBREAK R2.7 430"). Include any visible dimensions, R-value, colour, and any secondary code in round parentheses like "(4008080)". Never leave this blank, even if the code looks familiar.`;
+    • description: REQUIRED for every product — copy ONLY the human-readable product description / name text that appears on the manifest next to this code (e.g. "CEILING R4.1 580mm", "PINKSOUNDBREAK R2.7 430", "Pink Batts R8.0"). Include any visible dimensions, R-value, colour, and any secondary code in round parentheses like "(4008080)". DO NOT include the main productCode itself in the description — the code is already returned separately in productCode. Never leave this blank, even if the code looks familiar.`;
 
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
@@ -173,8 +173,15 @@ export async function analyzePDFContent(
           const secondaryCode = codeInParenthesesMatch
             ? codeInParenthesesMatch[1].trim()
             : '';
+
+          // Defensive: Gemini sometimes prepends/embeds the main productCode
+          // in the description text (e.g. "40007890 Pink Batts R8.0"). The
+          // code already renders in the CODE column, so strip any occurrence
+          // of the main code from the description here to keep it clean.
+          const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const cleanedDescription = rawDescription
             .replace(/\s*\([^)]*\)\s*/g, ' ')
+            .replace(new RegExp(`\\b${escapedCode}\\b`, 'g'), ' ')
             .replace(/\s+/g, ' ')
             .trim();
 

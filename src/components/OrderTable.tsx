@@ -11,6 +11,7 @@ interface OrderTableProps {
   locations?: Location[];
   locationsByIndex?: Record<number, string[]>;
   isPrint?: boolean;
+  onAddProductToCatalogue?: (product: OrderProduct) => void;
 }
 
 export const OrderTable: React.FC<OrderTableProps> = ({
@@ -20,7 +21,8 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   onToggleMustGo,
   locations = [],
   locationsByIndex = {},
-  isPrint = false
+  isPrint = false,
+  onAddProductToCatalogue
 }) => (
   <div className="overflow-x-auto print:overflow-visible">
     <table className="w-full border-collapse">
@@ -45,6 +47,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
             locations={locationsByIndex[index]}
             allLocations={locations}
             isPrint={isPrint}
+            onAddToCatalogue={onAddProductToCatalogue}
           />
         ))}
       </tbody>

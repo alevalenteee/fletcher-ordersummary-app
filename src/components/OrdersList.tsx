@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Destination, Location, Order, Product } from '@/types';
+import { Destination, Location, Order, OrderProduct, Product } from '@/types';
 import { OrderTable } from './OrderTable';
 import { TodayAtAGlance } from './TodayAtAGlance';
 import { Button } from './ui/Button';
@@ -24,6 +24,10 @@ interface OrdersListProps {
   getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
   onSubmitOrderLocations?: (orderId: string, draft: Record<number, string[]>) => void;
   onToggleMustGo?: (orderIndex: number, productIndex: number) => Promise<void> | void;
+  // Opens the Product catalogue modal with a prefilled new row seeded from
+  // this order line. Surfaced on unknown / manually-described rows via a
+  // hover-reveal "Add to database" button in TableRow.
+  onAddProductToCatalogue?: (product: OrderProduct) => void;
 }
 
 export const OrdersList: React.FC<OrdersListProps> = ({
@@ -35,7 +39,8 @@ export const OrdersList: React.FC<OrdersListProps> = ({
   locations = [],
   getLocationsFor = () => ({}),
   onSubmitOrderLocations = () => {},
-  onToggleMustGo
+  onToggleMustGo,
+  onAddProductToCatalogue
 }) => {
   const navigate = useNavigate();
   const [showDeleteAllConfirmation, setShowDeleteAllConfirmation] = React.useState(false);
@@ -285,6 +290,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                   ? (productIndex) => onToggleMustGo(originalIndex, productIndex)
                   : undefined
               }
+              onAddProductToCatalogue={onAddProductToCatalogue}
             />
           </motion.div>
           );

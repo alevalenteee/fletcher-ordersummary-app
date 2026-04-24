@@ -4,6 +4,7 @@ import { Package, MapPin, Layers, Boxes } from 'lucide-react';
 import { Destination, Order, Product } from '@/types';
 import { computeOrderStats } from '@/utils/orderStats';
 import { getDestinationAccent } from '@/utils/destinationColors';
+import { formatTodayDate } from '@/utils/time';
 
 interface TodayAtAGlanceProps {
   orders: Order[];
@@ -74,6 +75,13 @@ export const TodayAtAGlance: React.FC<TodayAtAGlanceProps> = ({
     [stats.destinationCounts]
   );
 
+  // Locale-formatted current date shown on the "Today" row (e.g.
+  // "FRI, 24 APR 2026"). Only computed once per render — for a multi-hour
+  // session this is fine; if the app is ever left open across midnight the
+  // page will tick over to the new date on the next re-render triggered by
+  // any order update.
+  const todayLabel = React.useMemo(() => formatTodayDate(), []);
+
   return (
     <motion.div
       layout
@@ -116,9 +124,6 @@ export const TodayAtAGlance: React.FC<TodayAtAGlanceProps> = ({
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1], delay: 0.18 }}
           className="px-5 py-2.5 border-t border-neutral-100 flex items-center gap-2 flex-wrap"
         >
-          <span className="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
-            Today
-          </span>
           <div className="flex items-center gap-2 flex-wrap">
             {topDestinations.map(d => {
               const accent = getDestinationAccent(d.name, destinations);
@@ -138,6 +143,14 @@ export const TodayAtAGlance: React.FC<TodayAtAGlanceProps> = ({
               );
             })}
           </div>
+          {/* ml-auto pushes the date to the right edge; sized to match the
+              destination chips (text-xs) so both groups read at the same
+              visual weight across the row. */}
+          <span className="ml-auto text-xs font-medium uppercase tracking-wider text-neutral-400">
+            Today
+            <span className="text-neutral-300 mx-1.5">·</span>
+            <span className="text-neutral-500">{todayLabel}</span>
+          </span>
         </motion.div>
       )}
     </motion.div>
