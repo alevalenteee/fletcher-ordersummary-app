@@ -24,8 +24,15 @@ export const ProductCode: React.FC<ProductCodeProps> = ({
   onToggleMustGo,
   isPrint,
 }) => {
+  // In the dedicated print view we want bin codes to read like a legible
+  // ink-pen annotation on a printed sheet. Stay neutral on screen so the
+  // OrdersList card keeps its quiet greys.
   const locationSuffix = location ? (
-    <span className="italic text-neutral-500 ml-1">{location}</span>
+    <span
+      className={`italic ml-1 ${isPrint ? 'text-blue-700 font-medium' : 'text-neutral-500'}`}
+    >
+      {location}
+    </span>
   ) : null;
 
   // Interactive screen flag — hidden on the print view (the flag now

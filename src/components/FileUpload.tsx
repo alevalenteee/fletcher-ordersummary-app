@@ -53,23 +53,23 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <Button
-              onClick={handleDownload}
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-1.5"
-              disabled={productCount === 0}
-              title="Download current product data as CSV"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Download
-            </Button>
-            <Button
-              onClick={onOpenCatalogue}
+              onClick={() => onOpenCatalogue()}
               size="sm"
               className="flex items-center gap-1.5"
             >
               <Pencil className="w-3.5 h-3.5" />
               Edit catalogue
+            </Button>
+            <Button
+              onClick={handleDownload}
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1.5 text-neutral-600"
+              disabled={productCount === 0}
+              title="Download current product data as CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download
             </Button>
           </div>
         </div>

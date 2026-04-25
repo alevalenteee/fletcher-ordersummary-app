@@ -1,0 +1,1 @@
+export { InventoryUploadCard } from './InventoryUploadCard';

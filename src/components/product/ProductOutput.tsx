@@ -8,17 +8,26 @@ interface ProductOutputProps {
   productData: Product[];
   manualDetails?: OrderProduct['manualDetails'];
   isAwning?: boolean;
+  // When true, render the awning `(A)` marker in the same ink-pen blue
+  // used for bin codes in PrintOrder so all location-flavoured info reads
+  // as a single annotation layer on the printed sheet.
+  isPrint?: boolean;
 }
 
-export const ProductOutput: React.FC<ProductOutputProps> = ({ 
-  code, 
-  packs, 
+export const ProductOutput: React.FC<ProductOutputProps> = ({
+  code,
+  packs,
   productData,
   manualDetails,
-  isAwning
+  isAwning,
+  isPrint,
 }) => {
   const awningSuffix = isAwning ? (
-    <span className="italic text-neutral-500 ml-1">(A)</span>
+    <span
+      className={`italic ml-1 ${isPrint ? 'text-blue-700 font-medium' : 'text-neutral-500'}`}
+    >
+      (A)
+    </span>
   ) : null;
 
   if (manualDetails) {

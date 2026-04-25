@@ -3,7 +3,9 @@ import { FileUpload } from '@/components/FileUpload';
 import { OrderForm } from '@/components/OrderForm';
 import { OrdersList } from '@/components/OrdersList';
 import { PDFAnalyzer } from '@/components/PDFAnalyzer';
-import { Destination, Location, Order, OrderProduct, Product, Profile } from '@/types';
+import { Destination, Location, Order, OrderProduct, Product, Profile, AutoAssignStockWarning } from '@/types';
+import { InventoryUploadCard } from '@/components/inventory';
+import type { ParsedInventoryRow } from '@/utils/inventoryCsv';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 import { ProfileSelector } from '@/components/ProfileSelector';
 import { ProductCatalogueModal } from '@/components/product-catalogue';
@@ -34,6 +36,15 @@ interface HomePageProps {
   getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
   onSubmitOrderLocations?: (orderId: string, draft: Record<number, string[]>) => void;
   onToggleMustGo?: (orderIndex: number, productIndex: number) => Promise<void> | void;
+  inventoryRowCount?: number;
+  inventoryUploadedAt?: string | null;
+  inventoryLoading?: boolean;
+  inventoryError?: string | null;
+  onReplaceInventory?: (rows: ParsedInventoryRow[]) => Promise<void>;
+  onClearInventory?: () => Promise<void>;
+  onRunAutoAssign?: () => void;
+  stockWarnings?: AutoAssignStockWarning[];
+  onDismissStockWarnings?: () => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
@@ -60,7 +71,16 @@ export const HomePage: React.FC<HomePageProps> = ({
   locations = [],
   getLocationsFor = () => ({}),
   onSubmitOrderLocations = () => {},
-  onToggleMustGo
+  onToggleMustGo,
+  inventoryRowCount = 0,
+  inventoryUploadedAt = null,
+  inventoryLoading = false,
+  inventoryError = null,
+  onReplaceInventory = async () => {},
+  onClearInventory = async () => {},
+  onRunAutoAssign,
+  stockWarnings = [],
+  onDismissStockWarnings = () => {},
 }) => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -93,6 +113,19 @@ export const HomePage: React.FC<HomePageProps> = ({
     [openCatalogue]
   );
 
+  const handleReplaceInventory = React.useCallback(
+    async (rows: ParsedInventoryRow[]) => {
+      await onReplaceInventory(rows);
+      onRunAutoAssign?.();
+    },
+    [onReplaceInventory, onRunAutoAssign]
+  );
+
+  const handleClearInventory = React.useCallback(async () => {
+    await onClearInventory();
+    onRunAutoAssign?.();
+  }, [onClearInventory, onRunAutoAssign]);
+
   const handleSaveCatalogue = React.useCallback(
     async (next: Product[]) => {
       try {
@@ -118,6 +151,7 @@ export const HomePage: React.FC<HomePageProps> = ({
     setIsSubmitting(true);
     try {
       await onOrderSubmit(order);
+      onRunAutoAssign?.();
     } finally {
       setIsSubmitting(false);
     }
@@ -165,6 +199,16 @@ export const HomePage: React.FC<HomePageProps> = ({
         status={catalogueStatus}
         className="md:block"
       />
+
+      <InventoryUploadCard
+        rowCount={inventoryRowCount}
+        uploadedAt={inventoryUploadedAt}
+        loading={inventoryLoading}
+        error={inventoryError}
+        replaceInventory={handleReplaceInventory}
+        clearInventory={handleClearInventory}
+        className="md:block"
+      />
       
       <PDFAnalyzer
         productData={productData}
@@ -181,6 +225,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             }
           } finally {
             setIsSubmitting(false);
+            onRunAutoAssign?.();
           }
         }}
       />
@@ -206,6 +251,10 @@ export const HomePage: React.FC<HomePageProps> = ({
         onSubmitOrderLocations={onSubmitOrderLocations}
         onToggleMustGo={onToggleMustGo}
         onAddProductToCatalogue={handleAddProductToCatalogue}
+        hasInventory={inventoryRowCount > 0}
+        onRunAutoAssign={onRunAutoAssign}
+        stockWarnings={stockWarnings}
+        onDismissStockWarnings={onDismissStockWarnings}
       />
 
       <ProductCatalogueModal

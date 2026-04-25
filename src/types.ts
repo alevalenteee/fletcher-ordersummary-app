@@ -50,6 +50,29 @@ export interface Location {
   created_at?: string;
 }
 
+/** One row from the inventory CSV / Supabase `inventory` table (quantities in packs). */
+export interface InventoryRow {
+  id: string;
+  location_code: string;
+  product_code: string;
+  quantity: number;
+  uploaded_at: string;
+}
+
+/** Emitted when ordered packs exceed available packs across assigned locations. */
+export interface AutoAssignStockWarning {
+  orderId: string;
+  productIndex: number;
+  productCode: string;
+  requested: number;
+  available: number;
+  /**
+   * Per-bin contribution toward `available`, in the order picks were made.
+   * Lets the UI surface "which bins hold what" for the short line.
+   */
+  breakdown: Array<{ code: string; quantity: number }>;
+}
+
 export interface Order {
   id?: string;
   destination: string;
@@ -59,6 +82,12 @@ export interface Order {
   trailerType?: string;
   trailerSize?: string;
   products: OrderProduct[];
+  /**
+   * Per-line bin assignments persisted alongside the order so they sync
+   * across devices. Keys are stringified product indices (matching the
+   * order's `products[]`), values are arrays of location codes.
+   */
+  locations?: Record<number, string[]>;
   user_id?: string;
   created_at?: string;
   profile_id?: string;

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 const DEFAULT_LOCATIONS: Array<{ code: string; group: LocationGroup; sort_order: number }> = [
   { code: 'AWNING', group: 'AWNING', sort_order: 1 },
   { code: 'XDOCK', group: 'AWNING', sort_order: 2 },
+  { code: 'AWNSTAGING', group: 'AWNING', sort_order: 3 },
   ...'ABCDEFGHIJKLMNOPQRSTU'.split('').map((l, i) => ({
     code: `GR2-${l}`,
     group: 'GR2' as const,
@@ -18,6 +19,7 @@ const DEFAULT_LOCATIONS: Array<{ code: string; group: LocationGroup; sort_order:
     sort_order: i + 1,
   })),
   { code: 'FABFOIL', group: 'FABRICATION', sort_order: 16 },
+  { code: 'FABSTAGING', group: 'FABRICATION', sort_order: 17 },
 ];
 
 export function useLocations() {

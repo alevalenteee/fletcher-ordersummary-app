@@ -99,7 +99,20 @@ export const ProductCatalogueModal: React.FC<ProductCatalogueModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     const base = toDraft(products);
-    if (initialNewRow) {
+    // Only prepend a seeded row when the caller actually provided
+    // meaningful seed data. This guards against accidental truthy values
+    // (e.g. a click event delivered straight into an open handler) that
+    // would otherwise add a blank "new product" line on every plain
+    // "Edit catalogue" click.
+    const hasSeedContent = !!initialNewRow && (
+      !!initialNewRow.category?.trim?.() ||
+      !!initialNewRow.newCode?.trim?.() ||
+      !!initialNewRow.oldCode?.trim?.() ||
+      !!initialNewRow.rValue?.trim?.() ||
+      !!initialNewRow.width?.trim?.() ||
+      !!initialNewRow.type
+    );
+    if (hasSeedContent) {
       const seededRow: DraftRow = {
         _rowId: makeRowId(),
         _isNew: true,

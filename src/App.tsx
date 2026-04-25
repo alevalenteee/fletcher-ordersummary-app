@@ -9,8 +9,12 @@ import { useProfiles } from './hooks/useProfiles';
 import { useDestinations } from './hooks/useDestinations';
 import { useLocations } from './hooks/useLocations';
 import { useOrderLocations } from './hooks/useOrderLocations';
+import { useInventory } from './hooks/useInventory';
 import { useRouteState } from './hooks/useRouteState';
 import { PageTransition } from './components/transitions/PageTransition';
+import { autoAssignLocations } from './utils/autoAssignLocations';
+import { sortOrdersByTime } from './utils/time';
+import type { AutoAssignStockWarning } from '@/types';
 import './styles/animations.css';
 
 function MainApp() {
@@ -43,7 +47,8 @@ function MainApp() {
     handleOrderSubmit,
     handleEditOrder,
     handleDeleteOrder,
-    updateOrderProducts
+    updateOrderProducts,
+    updateOrderLocations,
   } = useOrders(currentProfile?.id);
 
   // Destinations (globally shared, not profile-scoped)
@@ -57,12 +62,50 @@ function MainApp() {
   // Locations catalogue (hardcoded-seeded, read-only)
   const { locations } = useLocations();
 
-  // Per-order location assignments (localStorage-backed, device-local)
+  const {
+    inventory,
+    uploadedAt: inventoryUploadedAt,
+    loading: inventoryLoading,
+    error: inventoryError,
+    replaceInventory,
+    clearInventory,
+  } = useInventory();
+
+  // Per-order location assignments — synced via the `orders.locations`
+  // JSONB column so manual & auto-assigned picks travel across devices.
   const {
     getLocationsFor,
     setDraft: setOrderLocationsDraft,
     clearOrder: clearOrderLocations,
-  } = useOrderLocations();
+  } = useOrderLocations({ orders, updateOrderLocations });
+
+  const ordersRef = React.useRef(orders);
+  React.useLayoutEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
+  const [stockWarnings, setStockWarnings] = React.useState<AutoAssignStockWarning[]>([]);
+  const [stockWarningsDismissed, setStockWarningsDismissed] = React.useState(false);
+
+  const runAutoAssign = React.useCallback(() => {
+    if (!inventory.length || !locations.length) {
+      setStockWarnings([]);
+      return;
+    }
+    const { assignments, warnings } = autoAssignLocations({
+      orders: ordersRef.current,
+      inventory,
+      productData,
+      locations,
+    });
+    setStockWarnings(warnings);
+    setStockWarningsDismissed(false);
+    const sorted = sortOrdersByTime(ordersRef.current.filter(o => o.id));
+    for (const o of sorted) {
+      const id = o.id as string;
+      setOrderLocationsDraft(id, assignments[id] ?? {});
+    }
+  }, [inventory, locations, productData, setOrderLocationsDraft]);
 
   // Wrap delete so the order's location assignments disappear with it.
   const handleDeleteOrderWithLocations = async (index: number) => {
@@ -145,6 +188,15 @@ function MainApp() {
                 getLocationsFor={getLocationsFor}
                 onSubmitOrderLocations={setOrderLocationsDraft}
                 onToggleMustGo={handleToggleMustGo}
+                inventoryRowCount={inventory.length}
+                inventoryUploadedAt={inventoryUploadedAt}
+                inventoryLoading={inventoryLoading}
+                inventoryError={inventoryError}
+                onReplaceInventory={replaceInventory}
+                onClearInventory={clearInventory}
+                onRunAutoAssign={runAutoAssign}
+                stockWarnings={stockWarningsDismissed ? [] : stockWarnings}
+                onDismissStockWarnings={() => setStockWarningsDismissed(true)}
               />
             }
           />

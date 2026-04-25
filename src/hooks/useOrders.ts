@@ -40,7 +40,8 @@ export function useOrders(profileId?: string) {
         transportCompany: order.transport_company,
         trailerType: order.trailer_type,
         trailerSize: order.trailer_size,
-        products: order.products || []
+        products: order.products || [],
+        locations: (order.locations as Record<number, string[]> | null) ?? {},
       }));
       
       setOrders(transformedOrders);
@@ -212,6 +213,38 @@ export function useOrders(profileId?: string) {
     }
   };
 
+  // Replace the per-line `locations` JSON for a single order. Keeps state
+  // optimistic so the UI updates instantly even with a slow connection;
+  // rolls back if the persistence call fails.
+  const updateOrderLocations = async (
+    orderId: string,
+    locations: Record<number, string[]>
+  ) => {
+    if (!orderId) return;
+    let previous: Record<number, string[]> | undefined;
+    setOrders(prev =>
+      prev.map(o => {
+        if (o.id !== orderId) return o;
+        previous = o.locations ?? {};
+        return { ...o, locations };
+      })
+    );
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ locations })
+        .eq('id', orderId);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating order locations:', err);
+      setOrders(prev =>
+        prev.map(o => (o.id === orderId ? { ...o, locations: previous ?? {} } : o))
+      );
+      setError('Failed to update locations');
+      throw err;
+    }
+  };
+
   // Refresh orders
   const refreshOrders = async () => {
     await fetchOrders(profileId);
@@ -350,6 +383,7 @@ export function useOrders(profileId?: string) {
     refreshOrders,
     handleSaveOrders,
     updateOrdersProfile,
-    updateOrderProducts
+    updateOrderProducts,
+    updateOrderLocations,
   };
 }

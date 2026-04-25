@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Destination, Location, Order, OrderProduct, Product } from '@/types';
+import { AutoAssignStockWarning, Destination, Location, Order, OrderProduct, Product } from '@/types';
 import { OrderTable } from './OrderTable';
 import { TodayAtAGlance } from './TodayAtAGlance';
 import { Button } from './ui/Button';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { LoadingModal } from './ui/LoadingModal';
-import { Printer, Edit2, Trash2, Trash, Download, Package, MapPin } from 'lucide-react';
+import { Printer, Edit2, Trash2, Trash, Download, Package, MapPin, X, AlertTriangle, Sparkles } from 'lucide-react';
 import { downloadExcel } from '@/utils/export';
 import { sortOrdersByTime } from '@/utils/time';
 import { formatTrailerInfo } from '@/lib/utils';
@@ -28,6 +28,10 @@ interface OrdersListProps {
   // this order line. Surfaced on unknown / manually-described rows via a
   // hover-reveal "Add to database" button in TableRow.
   onAddProductToCatalogue?: (product: OrderProduct) => void;
+  hasInventory?: boolean;
+  onRunAutoAssign?: () => void;
+  stockWarnings?: AutoAssignStockWarning[];
+  onDismissStockWarnings?: () => void;
 }
 
 export const OrdersList: React.FC<OrdersListProps> = ({
@@ -40,7 +44,11 @@ export const OrdersList: React.FC<OrdersListProps> = ({
   getLocationsFor = () => ({}),
   onSubmitOrderLocations = () => {},
   onToggleMustGo,
-  onAddProductToCatalogue
+  onAddProductToCatalogue,
+  hasInventory = false,
+  onRunAutoAssign,
+  stockWarnings = [],
+  onDismissStockWarnings = () => {},
 }) => {
   const navigate = useNavigate();
   const [showDeleteAllConfirmation, setShowDeleteAllConfirmation] = React.useState(false);
@@ -51,6 +59,12 @@ export const OrdersList: React.FC<OrdersListProps> = ({
   // hasn't returned yet. We hide them from the list immediately so the exit
   // animation starts on click rather than after the Supabase round-trip.
   const [pendingDeleteIds, setPendingDeleteIds] = React.useState<Set<string>>(new Set());
+  const [stockListOpen, setStockListOpen] = React.useState(true);
+
+  const stockWarningKeys = React.useMemo(
+    () => new Set(stockWarnings.map(w => `${w.orderId}:${w.productIndex}`)),
+    [stockWarnings]
+  );
 
   // Sort orders by time. We filter out orders that are mid-delete so they
   // animate out the moment the user clicks delete — AnimatePresence picks up
@@ -132,6 +146,75 @@ export const OrdersList: React.FC<OrdersListProps> = ({
         message={isDeletingAll ? "Deleting all orders..." : "Updating order..."}
       />
 
+      {stockWarnings.length > 0 && (
+        <div className="rounded-lg border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-sm shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex gap-2 min-w-0">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" aria-hidden />
+              <div className="min-w-0">
+                <p className="font-medium text-amber-950">
+                  Possible insufficient stock ({stockWarnings.length} line
+                  {stockWarnings.length === 1 ? '' : 's'})
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setStockListOpen(o => !o)}
+                  className="mt-1 text-sm font-medium text-amber-800/90 hover:text-amber-950 underline-offset-2 hover:underline"
+                >
+                  {stockListOpen ? 'Hide details' : 'Show details'}
+                </button>
+                {stockListOpen && (
+                  <ul className="mt-2 space-y-2 text-sm text-amber-900/90 tabular-nums">
+                    {stockWarnings.map((w, i) => {
+                      const o = orders.find(x => x.id === w.orderId);
+                      const label = o ? `${o.destination} · ${o.time}` : w.orderId;
+                      return (
+                        <li key={`${w.orderId}-${w.productIndex}-${i}`} className="break-words">
+                          <span className="font-medium text-amber-950">{label}</span>
+                          {' — '}
+                          <span className="font-medium">{w.productCode}</span>
+                          {': '}
+                          <span className="text-amber-800">{w.available}</span>
+                          {' / '}
+                          <span>{w.requested} packs</span>
+                          {w.breakdown.length > 0 && (
+                            <span className="ml-1.5 inline-flex flex-wrap gap-1 align-middle">
+                              {w.breakdown.map(b => (
+                                <span
+                                  key={b.code}
+                                  className="inline-flex items-baseline gap-1 rounded-md border border-amber-300/60 bg-amber-100/70 px-1.5 py-0.5 text-xs text-amber-900"
+                                  title={`${b.code}: ${b.quantity} pack${b.quantity === 1 ? '' : 's'} available`}
+                                >
+                                  <span className="font-medium">{b.code}</span>
+                                  <span className="text-amber-700">·</span>
+                                  <span>{b.quantity}</span>
+                                </span>
+                              ))}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onDismissStockWarnings();
+                setStockListOpen(true);
+              }}
+              className="shrink-0 p-1.5 rounded-md text-amber-800 hover:bg-amber-100/80 transition-colors"
+              aria-label="Dismiss stock warning"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {orders.length > 0 ? (
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
           <div className="flex items-center gap-2.5">
@@ -160,6 +243,21 @@ export const OrdersList: React.FC<OrdersListProps> = ({
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export Excel</span>
+            </Button>
+            <Button
+              onClick={() => onRunAutoAssign?.()}
+              variant="outline"
+              size="sm"
+              disabled={!hasInventory || !onRunAutoAssign}
+              title={
+                !hasInventory
+                  ? 'Upload an inventory CSV first'
+                  : 'Re-run auto-assignment for all orders'
+              }
+              className="flex items-center gap-1.5 w-full sm:w-auto justify-center"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Auto-assign locations</span>
             </Button>
             <Button
               onClick={() => setShowLocationsModal(true)}
@@ -285,6 +383,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
               onUpdateProduct={() => handleUpdateProduct(sortedIndex)}
               locations={locations}
               locationsByIndex={getLocationsFor(order.id)}
+              stockWarningKeys={stockWarningKeys}
               onToggleMustGo={
                 onToggleMustGo
                   ? (productIndex) => onToggleMustGo(originalIndex, productIndex)

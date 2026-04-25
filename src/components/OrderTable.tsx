@@ -10,6 +10,8 @@ interface OrderTableProps {
   onToggleMustGo?: (productIndex: number) => Promise<void> | void;
   locations?: Location[];
   locationsByIndex?: Record<number, string[]>;
+  /** Keys `${orderId}:${productIndex}` for rows flagged as short on stock. */
+  stockWarningKeys?: Set<string>;
   isPrint?: boolean;
   onAddProductToCatalogue?: (product: OrderProduct) => void;
 }
@@ -21,6 +23,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   onToggleMustGo,
   locations = [],
   locationsByIndex = {},
+  stockWarningKeys,
   isPrint = false,
   onAddProductToCatalogue
 }) => (
@@ -46,6 +49,10 @@ export const OrderTable: React.FC<OrderTableProps> = ({
             onToggleMustGo={onToggleMustGo ? () => onToggleMustGo(index) : undefined}
             locations={locationsByIndex[index]}
             allLocations={locations}
+            showStockWarning={
+              !!order.id &&
+              !!stockWarningKeys?.has(`${order.id}:${index}`)
+            }
             isPrint={isPrint}
             onAddToCatalogue={onAddProductToCatalogue}
           />
