@@ -14,7 +14,7 @@ import { useRouteState } from './hooks/useRouteState';
 import { PageTransition } from './components/transitions/PageTransition';
 import { autoAssignLocations } from './utils/autoAssignLocations';
 import { sortOrdersByTime } from './utils/time';
-import type { AutoAssignStockWarning } from '@/types';
+import type { AutoAssignStockWarning, Order } from '@/types';
 import './styles/animations.css';
 
 function MainApp() {
@@ -87,20 +87,39 @@ function MainApp() {
   const [stockWarnings, setStockWarnings] = React.useState<AutoAssignStockWarning[]>([]);
   const [stockWarningsDismissed, setStockWarningsDismissed] = React.useState(false);
 
-  const runAutoAssign = React.useCallback(() => {
+  // Hide warnings whose order no longer exists. Keeping the source list in
+  // state and filtering on render means single deletes, delete-all, and
+  // profile switches all prune the warning panel automatically without each
+  // delete path having to remember to call setStockWarnings.
+  const visibleStockWarnings = React.useMemo(() => {
+    if (stockWarningsDismissed) return [];
+    if (stockWarnings.length === 0) return stockWarnings;
+    const liveOrderIds = new Set(
+      orders.map(o => o.id).filter((id): id is string => !!id)
+    );
+    return stockWarnings.filter(w => liveOrderIds.has(w.orderId));
+  }, [orders, stockWarnings, stockWarningsDismissed]);
+
+  // Accepts an optional explicit orders list. The PDF and single-order flows
+  // call it with the freshly-inserted rows because React's commit (and the
+  // layout effect that refreshes `ordersRef`) hasn't run yet by the time
+  // those `await onOrderSubmit` chains finish — without this, auto-assign
+  // would see a stale ref missing the new orders and skip them.
+  const runAutoAssign = React.useCallback((ordersOverride?: Order[]) => {
+    const orderList = ordersOverride ?? ordersRef.current;
     if (!inventory.length || !locations.length) {
       setStockWarnings([]);
       return;
     }
     const { assignments, warnings } = autoAssignLocations({
-      orders: ordersRef.current,
+      orders: orderList,
       inventory,
       productData,
       locations,
     });
     setStockWarnings(warnings);
     setStockWarningsDismissed(false);
-    const sorted = sortOrdersByTime(ordersRef.current.filter(o => o.id));
+    const sorted = sortOrdersByTime(orderList.filter(o => o.id));
     for (const o of sorted) {
       const id = o.id as string;
       setOrderLocationsDraft(id, assignments[id] ?? {});
@@ -195,7 +214,7 @@ function MainApp() {
                 onReplaceInventory={replaceInventory}
                 onClearInventory={clearInventory}
                 onRunAutoAssign={runAutoAssign}
-                stockWarnings={stockWarningsDismissed ? [] : stockWarnings}
+                stockWarnings={visibleStockWarnings}
                 onDismissStockWarnings={() => setStockWarningsDismissed(true)}
               />
             }

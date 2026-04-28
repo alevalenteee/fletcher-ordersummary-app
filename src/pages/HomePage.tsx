@@ -11,11 +11,24 @@ import { ProfileSelector } from '@/components/ProfileSelector';
 import { ProductCatalogueModal } from '@/components/product-catalogue';
 import { seedCatalogueRowFromOrderProduct } from '@/utils/catalogue';
 
+// Merge a "fresh" list of just-saved orders into a baseline orders array,
+// replacing same-id rows and appending genuinely new ones. Used to hand
+// auto-assign a complete list before React has committed our `setOrders`.
+function mergeOrdersWithFresh(baseline: Order[], fresh: Order[]): Order[] {
+  if (fresh.length === 0) return baseline;
+  const byId = new Map(baseline.filter(o => !!o.id).map(o => [o.id as string, o]));
+  for (const o of fresh) {
+    if (o.id) byId.set(o.id, o);
+  }
+  const idless = baseline.filter(o => !o.id);
+  return [...byId.values(), ...idless];
+}
+
 interface HomePageProps {
   productData: Product[];
   onDataLoaded: (data: any[]) => void;
   onSaveDefault: (data: any[]) => Promise<void>;
-  onOrderSubmit: (order: Order) => Promise<void>;
+  onOrderSubmit: (order: Order) => Promise<Order | null>;
   onEditOrder: (index: number) => void;
   onDeleteOrder: (index: number) => Promise<void>;
   editingOrder: Order | null;
@@ -42,7 +55,7 @@ interface HomePageProps {
   inventoryError?: string | null;
   onReplaceInventory?: (rows: ParsedInventoryRow[]) => Promise<void>;
   onClearInventory?: () => Promise<void>;
-  onRunAutoAssign?: () => void;
+  onRunAutoAssign?: (orders?: Order[]) => void;
   stockWarnings?: AutoAssignStockWarning[];
   onDismissStockWarnings?: () => void;
 }
@@ -146,12 +159,16 @@ export const HomePage: React.FC<HomePageProps> = ({
     [onDataLoaded, onSaveDefault]
   );
 
-  // Track submitting state for orders
+  // Track submitting state for orders. We merge the freshly-saved order into
+  // the orders snapshot from props before kicking off auto-assign — React
+  // hasn't committed the new state yet when this resolves, so the parent's
+  // ref-backed orders list would otherwise still be stale.
   const handleOrderSubmitWithLoading = async (order: Order) => {
     setIsSubmitting(true);
     try {
-      await onOrderSubmit(order);
-      onRunAutoAssign?.();
+      const saved = await onOrderSubmit(order);
+      const next = mergeOrdersWithFresh(orders, saved ? [saved] : []);
+      onRunAutoAssign?.(next);
     } finally {
       setIsSubmitting(false);
     }
@@ -215,17 +232,24 @@ export const HomePage: React.FC<HomePageProps> = ({
         destinations={destinations}
         onOrdersAnalyzed={async (analyzedOrders) => {
           setIsSubmitting(true);
+          // Collect the persisted orders so we can hand auto-assign the
+          // complete, up-to-date list explicitly. Relying on the parent's
+          // `ordersRef` here drops new orders because React batches the
+          // setOrders calls and hasn't committed by the time we run.
+          const inserted: Order[] = [];
           try {
             for (const order of analyzedOrders) {
               try {
-                await onOrderSubmit(order);
+                const saved = await onOrderSubmit(order);
+                if (saved?.id) inserted.push(saved);
               } catch (error) {
                 console.error('Error submitting order:', error);
               }
             }
           } finally {
             setIsSubmitting(false);
-            onRunAutoAssign?.();
+            const next = mergeOrdersWithFresh(orders, inserted);
+            onRunAutoAssign?.(next);
           }
         }}
       />

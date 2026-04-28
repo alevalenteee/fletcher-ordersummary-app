@@ -53,7 +53,7 @@ export function useOrders(profileId?: string) {
     }
   };
 
-  const handleOrderSubmit = async (order: Order) => {
+  const handleOrderSubmit = async (order: Order): Promise<Order | null> => {
     try {
       setIsSubmitting(true);
       let updatedOrder: Order | null = null;
@@ -153,6 +153,7 @@ export function useOrders(profileId?: string) {
       }
 
       setEditingOrder(null);
+      return updatedOrder;
     } catch (err) {
       console.error('Error saving order:', err);
       const message = err instanceof Error ? err.message : 'Failed to save order';
