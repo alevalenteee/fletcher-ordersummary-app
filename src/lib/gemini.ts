@@ -5,7 +5,7 @@ interface GeminiProduct extends Partial<OrderProduct> {
   description?: string;
 }
 
-const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 const ai = new GoogleGenAI({
   apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
@@ -26,7 +26,7 @@ const ORDER_SCHEMA = {
       items: {
         type: Type.OBJECT,
         // description is required on every product. If the code isn't in our
-        // catalogue, this is the only thing giving staff a human-readable
+        // catalogue or database, this is the only thing giving staff a human-readable
         // name on screen and in print, so we force the model to always fill
         // it in rather than letting it decide when it's "needed".
         required: ['productCode', 'packsOrdered', 'description'],
