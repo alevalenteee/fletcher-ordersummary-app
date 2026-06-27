@@ -84,7 +84,8 @@ export const PDFAnalyzer: React.FC<PDFAnalyzerProps> = ({
               transportCompany: order.transportCompany,
               trailerType: order.trailerType,
               trailerSize: order.trailerSize,
-              productCount: order.products.length
+              productCount: order.products.length,
+              splitLoadStops: order.splitLoad?.stops.length ?? 0,
             });
 
             if (order.time && order.time !== "00:00") {

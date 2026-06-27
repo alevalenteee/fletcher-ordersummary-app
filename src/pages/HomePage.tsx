@@ -3,7 +3,7 @@ import { FileUpload } from '@/components/FileUpload';
 import { OrderForm } from '@/components/OrderForm';
 import { OrdersList } from '@/components/OrdersList';
 import { PDFAnalyzer } from '@/components/PDFAnalyzer';
-import { Destination, Location, Order, OrderProduct, Product, Profile, AutoAssignStockWarning } from '@/types';
+import { Destination, Location, Order, OrderProduct, Product, Profile, AutoAssignStockWarning, SplitLoadTrailer } from '@/types';
 import { InventoryUploadCard } from '@/components/inventory';
 import type { ParsedInventoryRow } from '@/utils/inventoryCsv';
 import { LoadingModal } from '@/components/ui/LoadingModal';
@@ -49,6 +49,11 @@ interface HomePageProps {
   getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
   onSubmitOrderLocations?: (orderId: string, draft: Record<number, string[]>) => void;
   onToggleMustGo?: (orderIndex: number, productIndex: number) => Promise<void> | void;
+  onUpdateSplitLoadTrailer?: (
+    orderIndex: number,
+    stopIndex: number,
+    trailer: SplitLoadTrailer | null
+  ) => Promise<void> | void;
   inventoryRowCount?: number;
   inventoryUploadedAt?: string | null;
   inventoryLoading?: boolean;
@@ -85,6 +90,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   getLocationsFor = () => ({}),
   onSubmitOrderLocations = () => {},
   onToggleMustGo,
+  onUpdateSplitLoadTrailer,
   inventoryRowCount = 0,
   inventoryUploadedAt = null,
   inventoryLoading = false,
@@ -274,6 +280,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         getLocationsFor={getLocationsFor}
         onSubmitOrderLocations={onSubmitOrderLocations}
         onToggleMustGo={onToggleMustGo}
+        onUpdateSplitLoadTrailer={onUpdateSplitLoadTrailer}
         onAddProductToCatalogue={handleAddProductToCatalogue}
         hasInventory={inventoryRowCount > 0}
         onRunAutoAssign={onRunAutoAssign}

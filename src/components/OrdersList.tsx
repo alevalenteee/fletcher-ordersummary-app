@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { AutoAssignStockWarning, Destination, Location, Order, OrderProduct, Product } from '@/types';
+import { AutoAssignStockWarning, Destination, Location, Order, OrderProduct, Product, SplitLoadTrailer } from '@/types';
 import { OrderTable } from './OrderTable';
 import { TodayAtAGlance } from './TodayAtAGlance';
 import { Button } from './ui/Button';
 import { ConfirmationModal } from './ui/ConfirmationModal';
 import { LoadingModal } from './ui/LoadingModal';
-import { Printer, Edit2, Trash2, Trash, Download, Package, MapPin, X, AlertTriangle, Sparkles } from 'lucide-react';
+import { Printer, Edit2, Trash2, Trash, Download, Package, MapPin, X, AlertTriangle, Sparkles, Truck } from 'lucide-react';
 import { downloadExcel } from '@/utils/export';
 import { sortOrdersByTime } from '@/utils/time';
 import { formatTrailerInfo } from '@/lib/utils';
@@ -24,6 +24,11 @@ interface OrdersListProps {
   getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
   onSubmitOrderLocations?: (orderId: string, draft: Record<number, string[]>) => void;
   onToggleMustGo?: (orderIndex: number, productIndex: number) => Promise<void> | void;
+  onUpdateSplitLoadTrailer?: (
+    orderIndex: number,
+    stopIndex: number,
+    trailer: SplitLoadTrailer | null
+  ) => Promise<void> | void;
   // Opens the Product catalogue modal with a prefilled new row seeded from
   // this order line. Surfaced on unknown / manually-described rows via a
   // hover-reveal "Add to database" button in TableRow.
@@ -44,6 +49,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
   getLocationsFor = () => ({}),
   onSubmitOrderLocations = () => {},
   onToggleMustGo,
+  onUpdateSplitLoadTrailer,
   onAddProductToCatalogue,
   hasInventory = false,
   onRunAutoAssign,
@@ -355,6 +361,12 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                     )}
                   </div>
                 )}
+                {order.splitLoad && order.splitLoad.stops.length > 1 && (
+                  <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-900 border border-amber-200/80">
+                    <Truck className="w-3 h-3" />
+                    Split load
+                  </span>
+                )}
               </div>
               <div className="flex gap-1.5 w-full sm:w-auto">
                 <Button
@@ -387,6 +399,12 @@ export const OrdersList: React.FC<OrdersListProps> = ({
               onToggleMustGo={
                 onToggleMustGo
                   ? (productIndex) => onToggleMustGo(originalIndex, productIndex)
+                  : undefined
+              }
+              onUpdateSplitLoadTrailer={
+                onUpdateSplitLoadTrailer
+                  ? (stopIndex, trailer) =>
+                      onUpdateSplitLoadTrailer(originalIndex, stopIndex, trailer)
                   : undefined
               }
               onAddProductToCatalogue={onAddProductToCatalogue}

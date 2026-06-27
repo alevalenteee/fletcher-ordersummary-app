@@ -1,8 +1,14 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import { Order, Product, OrderProduct } from '@/types';
+import { Order, Product, OrderProduct, SplitLoad, SplitLoadStop } from '@/types';
 
 interface GeminiProduct extends Partial<OrderProduct> {
   description?: string;
+}
+
+interface GeminiDeliveryGroup {
+  deliveryAddress?: string;
+  destination?: string;
+  products?: GeminiProduct[];
 }
 
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
@@ -11,9 +17,19 @@ const ai = new GoogleGenAI({
   apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
 });
 
+const PRODUCT_ITEM_SCHEMA = {
+  type: Type.OBJECT,
+  required: ['productCode', 'packsOrdered', 'description'],
+  properties: {
+    productCode: { type: Type.STRING },
+    packsOrdered: { type: Type.STRING },
+    description: { type: Type.STRING },
+  },
+};
+
 const ORDER_SCHEMA = {
   type: Type.OBJECT,
-  required: ['destination', 'time', 'products'],
+  required: ['destination', 'time', 'deliveryGroups'],
   properties: {
     destination: { type: Type.STRING },
     manifestNumber: { type: Type.STRING, nullable: true },
@@ -21,24 +37,124 @@ const ORDER_SCHEMA = {
     trailerType: { type: Type.STRING, nullable: true },
     trailerSize: { type: Type.STRING, nullable: true },
     time: { type: Type.STRING },
-    products: {
+    deliveryGroups: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
-        // description is required on every product. If the code isn't in our
-        // catalogue or database, this is the only thing giving staff a human-readable
-        // name on screen and in print, so we force the model to always fill
-        // it in rather than letting it decide when it's "needed".
-        required: ['productCode', 'packsOrdered', 'description'],
+        required: ['deliveryAddress', 'destination', 'products'],
         properties: {
-          productCode: { type: Type.STRING },
-          packsOrdered: { type: Type.STRING },
-          description: { type: Type.STRING },
+          deliveryAddress: { type: Type.STRING },
+          destination: { type: Type.STRING },
+          products: {
+            type: Type.ARRAY,
+            items: PRODUCT_ITEM_SCHEMA,
+          },
         },
       },
     },
   },
 };
+
+/** Match extracted suburb text against configured destination names. */
+function matchDestination(raw: string, destinations: string[]): string {
+  const clean = String(raw).trim().toUpperCase();
+  const known = [...destinations]
+    .map(d => d.toUpperCase())
+    .sort((a, b) => b.length - a.length);
+
+  const matched = known.find(known =>
+    clean.includes(known) || clean === known
+  );
+  return matched ?? clean;
+}
+
+/** Validate and enrich a single product line from Gemini output. */
+function validateProduct(product: GeminiProduct, productData: Product[]): OrderProduct | null {
+  if (!product.productCode || !product.packsOrdered) return null;
+
+  const code = product.productCode.trim();
+  const isValidFormat = code.startsWith('20') || code.startsWith('40') || code.startsWith('10');
+
+  if (!isValidFormat) {
+    console.warn(`Skipping product with invalid code format: ${code}`);
+    return null;
+  }
+
+  const isValidProduct = productData.some(p =>
+    p.newCode === code || p.oldCode === code
+  );
+
+  const result: OrderProduct = {
+    productCode: code,
+    packsOrdered: String(product.packsOrdered).trim(),
+  };
+
+  if (!isValidProduct) {
+    const rawDescription = (product.description ?? '').trim();
+    const codeInParenthesesMatch = rawDescription.match(/\(([^)]+)\)/);
+    const secondaryCode = codeInParenthesesMatch
+      ? codeInParenthesesMatch[1].trim()
+      : '';
+
+    const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const cleanedDescription = rawDescription
+      .replace(/\s*\([^)]*\)\s*/g, ' ')
+      .replace(new RegExp(`\\b${escapedCode}\\b`, 'g'), ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    console.warn(`Unknown product code found: ${code}`);
+    result.manualDetails = {
+      type: 'Unknown',
+      category: 'Unknown Product',
+      description: cleanedDescription || 'No description provided',
+      secondaryCode,
+      packsPerBale: 1,
+    };
+  }
+
+  return result;
+}
+
+/** Flatten delivery groups into products[] and optional splitLoad metadata. */
+function buildOrderFromGroups(
+  groups: GeminiDeliveryGroup[],
+  destinations: string[],
+  productData: Product[]
+): { products: OrderProduct[]; splitLoad?: SplitLoad } {
+  const products: OrderProduct[] = [];
+  const stops: SplitLoadStop[] = [];
+
+  for (const group of groups) {
+    const rawProducts = Array.isArray(group.products) ? group.products : [];
+    const productIndexes: number[] = [];
+
+    for (const raw of rawProducts) {
+      const validated = validateProduct(raw, productData);
+      if (!validated) continue;
+      productIndexes.push(products.length);
+      products.push(validated);
+    }
+
+    if (productIndexes.length === 0) continue;
+
+    const deliveryAddress = String(group.deliveryAddress ?? '').trim();
+    const destination = matchDestination(
+      group.destination ?? deliveryAddress,
+      destinations
+    );
+
+    stops.push({
+      deliveryAddress: deliveryAddress || destination,
+      destination,
+      trailer: null,
+      productIndexes,
+    });
+  }
+
+  const splitLoad = stops.length > 1 ? { stops } : undefined;
+  return { products, splitLoad };
+}
 
 export async function analyzePDFContent(
   base64PDF: string,
@@ -50,18 +166,29 @@ export async function analyzePDFContent(
       ? destinations.join(', ')
       : '(none configured)';
 
-    const prompt = `Extract a delivery order from this manifest PDF.
+    const prompt = `Extract a delivery order from this Fletcher Insulation load manifest PDF.
 
-- destination: delivery suburb in CAPITALS. If it matches any of [${destinationsList}], use that exact entry.
+IMPORTANT — addresses:
+- IGNORE the Fletcher depot / origin address at the top-left (e.g. "FI - Dandenong - EWM", Frankston-Dandenong Rd, Dandenong). That is where we ship FROM, not a delivery destination.
+- ONLY use addresses from the manifest TABLE under the "Delivery Address" column. These are the real delivery stops.
+- A manifest may have ONE delivery address block (standard load) or MULTIPLE delivery address blocks (split load). Each block has an address on its row and product line items on the same row and rows below it until the next delivery address or a subtotal/total row.
+- Products belong to the nearest delivery-address block ABOVE them in the table.
+
+Return deliveryGroups: one entry per delivery-address block, in top-to-bottom order. For each group:
+- deliveryAddress: the full delivery address text from the manifest table (e.g. "FI - Shepparton, 62 Florence Street Shepparton VIC 3630").
+- destination: the delivery suburb/location name in CAPITALS. If it matches any of [${destinationsList}], use that exact entry.
+- products: every line item in that block with a product code starting with 10, 20 or 40. For every product return:
+    • productCode: the main product code.
+    • packsOrdered: the pack quantity.
+    • description: REQUIRED — copy ONLY the human-readable product description from the manifest (e.g. "Pink Batts R4.1 1160X430X215 10PK"). Include dimensions, R-value, colour, and secondary codes in parentheses like "(901414)". DO NOT include the main productCode in the description.
+
+Also return order-level fields from the document header:
+- destination: use the FIRST delivery group's destination (primary order destination).
 - manifestNumber: the Delivery/Manifest number from the document header.
 - transportCompany: the name appearing near the word "CARRIER".
 - trailerType: from the VEHICLE section (e.g. B_DOUBLE, TRUCK, SEMI, RIGID, PANTECH).
 - trailerSize: cubic-metre capacity from the VEHICLE section (e.g. 173M3, 120M3).
-- time: the HH:MM 24-hour time, usually top-right of the page. If absent, use 00:00.
-- products: every line item with a product code starting with 10, 20 or 40. For every product return:
-    • productCode: the main product code.
-    • packsOrdered: the pack quantity.
-    • description: REQUIRED for every product — copy ONLY the human-readable product description / name text that appears on the manifest next to this code (e.g. "CEILING R4.1 580mm", "PINKSOUNDBREAK R2.7 430", "Pink Batts R8.0"). Include any visible dimensions, R-value, colour, and any secondary code in round parentheses like "(4008080)". DO NOT include the main productCode itself in the description — the code is already returned separately in productCode. Never leave this blank, even if the code looks familiar.`;
+- time: the HH:MM 24-hour time, usually top-right of the page. If absent, use 00:00.`;
 
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
@@ -87,16 +214,10 @@ export async function analyzePDFContent(
       let parsedOrder: any;
       try {
         parsedOrder = JSON.parse(text);
-      } catch (e) {
+      } catch {
         throw new Error('Failed to parse JSON from Gemini response');
       }
 
-      if (!parsedOrder.destination) {
-        throw new Error('Missing destination in order');
-      }
-
-      // Trim optional string fields; drop them if empty or null so downstream
-      // consumers see "undefined" (same contract as before the refactor).
       const trimOrDrop = (key: 'manifestNumber' | 'transportCompany' | 'trailerType' | 'trailerSize') => {
         const raw = parsedOrder[key];
         if (raw === undefined || raw === null) {
@@ -112,7 +233,6 @@ export async function analyzePDFContent(
       trimOrDrop('trailerType');
       trimOrDrop('trailerSize');
 
-      // Validate and set time — keep the "00:00" fallback behaviour.
       const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
       if (!parsedOrder.time || parsedOrder.time === '' || !timeRegex.test(parsedOrder.time)) {
         if (parsedOrder.time && parsedOrder.time !== '00:00') {
@@ -121,92 +241,35 @@ export async function analyzePDFContent(
         parsedOrder.time = '00:00';
       }
 
-      if (!Array.isArray(parsedOrder.products) || parsedOrder.products.length === 0) {
-        throw new Error('Order must contain at least one product');
+      const groups: GeminiDeliveryGroup[] = Array.isArray(parsedOrder.deliveryGroups)
+        ? parsedOrder.deliveryGroups
+        : [];
+
+      if (groups.length === 0) {
+        throw new Error('Order must contain at least one delivery group');
       }
 
-      // Clean and validate destination
-      const cleanDestination = String(parsedOrder.destination).trim().toUpperCase();
+      const { products, splitLoad } = buildOrderFromGroups(groups, destinations, productData);
 
-      // Sorted longest-first so e.g. "GEPPS CROSS" matches before "GEPPS" would
-      // if a user ever added a shorter overlapping entry.
-      const knownDestinations = [...destinations]
-        .map(d => d.toUpperCase())
-        .sort((a, b) => b.length - a.length);
-
-      const matchedKnownDestination = knownDestinations.find(known =>
-        cleanDestination.includes(known) || cleanDestination === known
-      );
-
-      // If no known destination matches, use the cleaned extracted destination as-is.
-      // This allows new suburbs/locations to be displayed.
-      parsedOrder.destination = matchedKnownDestination ?? cleanDestination;
-
-      // Validate products — unknown codes keep their description + parenthesised
-      // secondary code via manualDetails, exactly as before.
-      parsedOrder.products = parsedOrder.products.filter((product: GeminiProduct) => {
-        if (!product.productCode || !product.packsOrdered) return false;
-
-        const code = product.productCode.trim();
-        const isValidFormat = code.startsWith('20') || code.startsWith('40') || code.startsWith('10');
-
-        if (!isValidFormat) {
-          console.warn(`Skipping product with invalid code format: ${code}`);
-          return false;
-        }
-
-        // Try to match against both new and old codes
-        const isValidProduct = productData.some(p =>
-          p.newCode === code || p.oldCode === code
-        );
-
-        if (!isValidProduct) {
-          // Gemini is now required by the schema to return a description for
-          // every product. We still defensively fall back in case the model
-          // ever breaks the contract so the row remains useful to the user.
-          const rawDescription = (product.description ?? '').trim();
-
-          // Extract any secondary code in parentheses (e.g. "(4008080)") so
-          // it renders in the CODE column, then remove it from the visible
-          // description to avoid showing the same code twice on the row.
-          const codeInParenthesesMatch = rawDescription.match(/\(([^)]+)\)/);
-          const secondaryCode = codeInParenthesesMatch
-            ? codeInParenthesesMatch[1].trim()
-            : '';
-
-          // Defensive: Gemini sometimes prepends/embeds the main productCode
-          // in the description text (e.g. "40007890 Pink Batts R8.0"). The
-          // code already renders in the CODE column, so strip any occurrence
-          // of the main code from the description here to keep it clean.
-          const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const cleanedDescription = rawDescription
-            .replace(/\s*\([^)]*\)\s*/g, ' ')
-            .replace(new RegExp(`\\b${escapedCode}\\b`, 'g'), ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-          // The bold line in the row is `category`. Keep that as the
-          // "Unknown product" tag so rows flagged for catalogue attention
-          // stand out at a glance, and put the real PDF text in the muted
-          // subtitle so staff can still identify the item.
-          console.warn(`Unknown product code found: ${code}`);
-          product.manualDetails = {
-            type: 'Unknown',
-            category: 'Unknown Product',
-            description: cleanedDescription || 'No description provided',
-            secondaryCode,
-            packsPerBale: 1,
-          };
-        }
-
-        return true;
-      });
-
-      if (parsedOrder.products.length === 0) {
+      if (products.length === 0) {
         throw new Error('No products found in order');
       }
 
-      return parsedOrder as Order;
+      const primaryDestination = splitLoad?.stops[0]?.destination
+        ?? matchDestination(parsedOrder.destination ?? '', destinations);
+
+      const order: Order = {
+        destination: primaryDestination,
+        time: parsedOrder.time,
+        products,
+        ...(parsedOrder.manifestNumber && { manifestNumber: parsedOrder.manifestNumber }),
+        ...(parsedOrder.transportCompany && { transportCompany: parsedOrder.transportCompany }),
+        ...(parsedOrder.trailerType && { trailerType: parsedOrder.trailerType }),
+        ...(parsedOrder.trailerSize && { trailerSize: parsedOrder.trailerSize }),
+        ...(splitLoad && { splitLoad }),
+      };
+
+      return order;
     } catch (error) {
       console.error('Error parsing Gemini response:', error);
       throw error;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Order, OrderProduct } from '@/types';
+import { Order, OrderProduct, SplitLoad } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 export function useOrders(profileId?: string) {
@@ -42,6 +42,7 @@ export function useOrders(profileId?: string) {
         trailerSize: order.trailer_size,
         products: order.products || [],
         locations: (order.locations as Record<number, string[]> | null) ?? {},
+        splitLoad: order.split_load ?? undefined,
       }));
       
       setOrders(transformedOrders);
@@ -74,7 +75,8 @@ export function useOrders(profileId?: string) {
           transport_company: order.transportCompany || null,
           trailer_type: order.trailerType || null,
           trailer_size: order.trailerSize || null,
-          products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
+          products: JSON.parse(JSON.stringify(productsArray)),
+          split_load: order.splitLoad ? JSON.parse(JSON.stringify(order.splitLoad)) : null,
         };
         
         // Only include profile_id if it's defined
@@ -100,6 +102,7 @@ export function useOrders(profileId?: string) {
           transportCompany: order.transportCompany,
           trailerType: order.trailerType,
           trailerSize: order.trailerSize,
+          splitLoad: order.splitLoad,
           profile_id: order.profile_id || profileId
         };
         
@@ -118,7 +121,8 @@ export function useOrders(profileId?: string) {
           transport_company: order.transportCompany || null,
           trailer_type: order.trailerType || null,
           trailer_size: order.trailerSize || null,
-          products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
+          products: JSON.parse(JSON.stringify(productsArray)),
+          split_load: order.splitLoad ? JSON.parse(JSON.stringify(order.splitLoad)) : null,
         };
         
         // Only include profile_id if it's defined
@@ -144,7 +148,8 @@ export function useOrders(profileId?: string) {
           transportCompany: order.transportCompany || data.transport_company,
           trailerType: order.trailerType || data.trailer_type,
           trailerSize: order.trailerSize || data.trailer_size,
-          products: order.products // Ensure products are included
+          splitLoad: order.splitLoad ?? data.split_load ?? undefined,
+          products: order.products
         };
         
         if (updatedOrder) {
@@ -214,9 +219,6 @@ export function useOrders(profileId?: string) {
     }
   };
 
-  // Replace the per-line `locations` JSON for a single order. Keeps state
-  // optimistic so the UI updates instantly even with a slow connection;
-  // rolls back if the persistence call fails.
   const updateOrderLocations = async (
     orderId: string,
     locations: Record<number, string[]>
@@ -246,6 +248,34 @@ export function useOrders(profileId?: string) {
     }
   };
 
+  const updateOrderSplitLoad = async (
+    orderIndex: number,
+    splitLoad: SplitLoad | undefined
+  ) => {
+    const target = orders[orderIndex];
+    if (!target?.id) return;
+    const previous = target.splitLoad;
+    setOrders(prev =>
+      prev.map((o, i) => (i === orderIndex ? { ...o, splitLoad } : o))
+    );
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          split_load: splitLoad ? JSON.parse(JSON.stringify(splitLoad)) : null,
+        })
+        .eq('id', target.id);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating split load:', err);
+      setOrders(prev =>
+        prev.map((o, i) => (i === orderIndex ? { ...o, splitLoad: previous } : o))
+      );
+      setError('Failed to update split load');
+      throw err;
+    }
+  };
+
   // Refresh orders
   const refreshOrders = async () => {
     await fetchOrders(profileId);
@@ -270,7 +300,8 @@ export function useOrders(profileId?: string) {
             transport_company: order.transportCompany || null,
             trailer_type: order.trailerType || null,
             trailer_size: order.trailerSize || null,
-            products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
+            products: JSON.parse(JSON.stringify(productsArray)),
+            split_load: order.splitLoad ? JSON.parse(JSON.stringify(order.splitLoad)) : null,
           };
           
           // Only include profile_id if it's defined
@@ -300,7 +331,8 @@ export function useOrders(profileId?: string) {
             transport_company: order.transportCompany || null,
             trailer_type: order.trailerType || null,
             trailer_size: order.trailerSize || null,
-            products: JSON.parse(JSON.stringify(productsArray)) // Ensure clean JSON
+            products: JSON.parse(JSON.stringify(productsArray)),
+            split_load: order.splitLoad ? JSON.parse(JSON.stringify(order.splitLoad)) : null,
           };
           
           // Only include profile_id if it's defined
@@ -386,5 +418,6 @@ export function useOrders(profileId?: string) {
     updateOrdersProfile,
     updateOrderProducts,
     updateOrderLocations,
+    updateOrderSplitLoad,
   };
 }

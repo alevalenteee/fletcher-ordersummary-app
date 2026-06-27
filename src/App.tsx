@@ -14,7 +14,7 @@ import { useRouteState } from './hooks/useRouteState';
 import { PageTransition } from './components/transitions/PageTransition';
 import { autoAssignLocations } from './utils/autoAssignLocations';
 import { sortOrdersByTime } from './utils/time';
-import type { AutoAssignStockWarning, Order } from '@/types';
+import type { AutoAssignStockWarning, Order, SplitLoadTrailer } from '@/types';
 import './styles/animations.css';
 
 function MainApp() {
@@ -49,6 +49,7 @@ function MainApp() {
     handleDeleteOrder,
     updateOrderProducts,
     updateOrderLocations,
+    updateOrderSplitLoad,
   } = useOrders(currentProfile?.id);
 
   // Destinations (globally shared, not profile-scoped)
@@ -142,6 +143,21 @@ function MainApp() {
     await updateOrderProducts(orderIndex, nextProducts);
   };
 
+  const handleUpdateSplitLoadTrailer = async (
+    orderIndex: number,
+    stopIndex: number,
+    trailer: SplitLoadTrailer | null
+  ) => {
+    const target = orders[orderIndex];
+    if (!target?.splitLoad || !target.id) return;
+    const nextSplitLoad = {
+      stops: target.splitLoad.stops.map((stop, i) =>
+        i === stopIndex ? { ...stop, trailer } : stop
+      ),
+    };
+    await updateOrderSplitLoad(orderIndex, nextSplitLoad);
+  };
+
   // Handle profile switching
   const handleSwitchProfile = async (profileId: string) => {
     // First switch the profile
@@ -207,6 +223,7 @@ function MainApp() {
                 getLocationsFor={getLocationsFor}
                 onSubmitOrderLocations={setOrderLocationsDraft}
                 onToggleMustGo={handleToggleMustGo}
+                onUpdateSplitLoadTrailer={handleUpdateSplitLoadTrailer}
                 inventoryRowCount={inventory.length}
                 inventoryUploadedAt={inventoryUploadedAt}
                 inventoryLoading={inventoryLoading}

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Settings2, ClipboardList, Plus, Check } from 'lucide-react';
-import { Destination, Product, OrderProduct, Order } from '@/types';
+import { Destination, Product, OrderProduct, Order, SplitLoad } from '@/types';
 import { getProductDetails, formatRValue, convertToOutput, getOutputUnit } from '../utils';
+import { remapSplitLoadAfterRemove } from '@/utils/splitLoad';
 import { ProductDetailsForm } from './product/ProductDetailsForm';
 import { LoadingModal } from './ui/LoadingModal';
 import { DestinationsModal } from './DestinationsModal';
@@ -44,6 +45,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [products, setProducts] = React.useState<OrderProduct[]>([]);
+  const [splitLoad, setSplitLoad] = React.useState<SplitLoad | undefined>(undefined);
   const [showDestinationsModal, setShowDestinationsModal] = React.useState(false);
 
   // Load initial order data if editing. When the destination on the order is no
@@ -61,6 +63,14 @@ export const OrderForm: React.FC<OrderFormProps> = ({
       setCustomTime(isCustomTime ? initialOrder.time : '');
 
       setProducts(initialOrder.products);
+      setSplitLoad(initialOrder.splitLoad);
+    } else {
+      setDestination('');
+      setCustomDestination('');
+      setTime('');
+      setCustomTime('');
+      setProducts([]);
+      setSplitLoad(undefined);
     }
   }, [initialOrder, destinations]);
 
@@ -104,6 +114,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
 
   const handleRemoveProduct = (index: number) => {
     setProducts(products.filter((_, i) => i !== index));
+    setSplitLoad(prev => remapSplitLoadAfterRemove(prev, index));
   };
 
   const handleEditProduct = (index: number) => {
@@ -122,11 +133,15 @@ export const OrderForm: React.FC<OrderFormProps> = ({
     try {
       setIsSubmitting(true);
       await onSubmit({
+        id: initialOrder?.id,
         destination: finalDestination,
         time: finalTime,
         manifestNumber: initialOrder?.manifestNumber,
         transportCompany: initialOrder?.transportCompany,
-        products
+        trailerType: initialOrder?.trailerType,
+        trailerSize: initialOrder?.trailerSize,
+        products,
+        splitLoad,
       });
 
       // Reset form
@@ -135,6 +150,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
       setTime('');
       setCustomTime('');
       setProducts([]);
+      setSplitLoad(undefined);
     } finally {
       setIsSubmitting(false);
     }

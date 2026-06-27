@@ -59,6 +59,24 @@ export interface InventoryRow {
   uploaded_at: string;
 }
 
+export type SplitLoadTrailer = 'A' | 'B';
+
+/** One delivery-address block on a split-load manifest. */
+export interface SplitLoadStop {
+  /** Full delivery address text from the manifest table. */
+  deliveryAddress: string;
+  /** Normalised suburb/destination name (CAPITALS). */
+  destination: string;
+  /** A-Trailer or B-Trailer — assigned manually in the form; null until set. */
+  trailer: SplitLoadTrailer | null;
+  /** Indices into the order's flat `products[]` for lines belonging to this stop. */
+  productIndexes: number[];
+}
+
+export interface SplitLoad {
+  stops: SplitLoadStop[];
+}
+
 /** Emitted when ordered packs exceed available packs across assigned locations. */
 export interface AutoAssignStockWarning {
   orderId: string;
@@ -88,6 +106,8 @@ export interface Order {
    * order's `products[]`), values are arrays of location codes.
    */
   locations?: Record<number, string[]>;
+  /** Present when the manifest has multiple delivery-address blocks (split load). */
+  splitLoad?: SplitLoad;
   user_id?: string;
   created_at?: string;
   profile_id?: string;
