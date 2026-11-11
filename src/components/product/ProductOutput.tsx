@@ -22,53 +22,41 @@ export const ProductOutput: React.FC<ProductOutputProps> = ({
   isAwning,
   isPrint,
 }) => {
-  const awningSuffix = isAwning ? (
+  const awningMarker = isAwning ? (
     <span
-      className={`italic ml-1 ${isPrint ? 'text-blue-700 font-medium' : 'text-neutral-500'}`}
+      className={`italic ${isPrint ? 'mr-1 text-blue-700 font-medium' : 'ml-1 text-neutral-500'}`}
     >
       (A)
     </span>
   ) : null;
 
+  let output: string | number;
+  let unit: string;
+
   if (manualDetails) {
     const packsNum = parseFloat(packs);
-    
-    // For Unknown type, always display as Units (for AI-analyzed unknown products)
-    if (manualDetails.type === 'Unknown') {
-      return <><strong>{packsNum} Units</strong>{awningSuffix}</>;
-    }
-    
-    // For Batt or Roll types, display in Bales
-    if (manualDetails.type === 'Batt' || manualDetails.type === 'Roll') {
-      if (manualDetails.packsPerBale) {
-        const bales = packsNum / manualDetails.packsPerBale;
-        return (
-          <>
-            <strong>
-              {Number.isInteger(bales) ? bales : bales.toFixed(1)} Bales
-            </strong>
-            {awningSuffix}
-          </>
-        );
-      } else {
-        // If packsPerBale is not defined, assume 1 pack = 1 bale
-        return <><strong>{packsNum} Bales</strong>{awningSuffix}</>;
-      }
-    }
-    
-    // For Board or Pallet types, display in Units
-    return <><strong>{packsNum} Units</strong>{awningSuffix}</>;
-  }
 
-  const output = convertToOutput(code, packs, productData);
-  const unit = getOutputUnit(code, productData);
+    if (manualDetails.type === 'Batt' || manualDetails.type === 'Roll') {
+      const baleSize = manualDetails.packsPerBale;
+      const bales = packsNum / (baleSize || 1);
+      output = baleSize && !Number.isInteger(bales) ? bales.toFixed(1) : bales;
+      unit = 'Bales';
+    } else {
+      output = packsNum;
+      unit = 'Units';
+    }
+  } else {
+    output = convertToOutput(code, packs, productData);
+    unit = getOutputUnit(code, productData);
+  }
 
   return (
     <>
+      {isPrint ? awningMarker : null}
       <strong>
         {output} {unit}
       </strong>
-      {awningSuffix}
+      {isPrint ? null : awningMarker}
     </>
   );
 }

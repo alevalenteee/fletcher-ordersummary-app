@@ -22,6 +22,7 @@ function MainApp() {
   const location = useLocation();
   const { 
     productData, 
+    loading: productDataLoading,
     handleDataLoaded, 
     saveAsDefault 
   } = useProductData();
@@ -189,6 +190,7 @@ function MainApp() {
               <PrintView
                 orders={orders}
                 productData={productData}
+                loading={productDataLoading || ordersLoading || profilesLoading}
                 locations={locations}
                 getLocationsFor={getLocationsFor}
                 destinations={destinations}

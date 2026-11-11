@@ -1,5 +1,6 @@
-import { Order, Product } from '@/types';
-import { convertToOutput, getOutputUnit } from '@/utils';
+import { Order, OrderProduct, Product } from '@/types';
+import { convertToOutput, getOutputUnit, getProductDetails } from '@/utils';
+import { isBattType } from './catalogue';
 
 export type OrderStats = {
   orders: number;
@@ -8,6 +9,29 @@ export type OrderStats = {
   bales: number;
   destinationCounts: Array<{ name: string; count: number }>;
 };
+
+export function computeBattBales(products: OrderProduct[], productData: Product[]): number {
+  let total = 0;
+
+  for (const line of products) {
+    const catalogueType = getProductDetails(line.productCode, productData)?.type;
+    if (!isBattType(catalogueType || line.manualDetails?.type)) continue;
+
+    const packs = parseFloat(line.packsOrdered);
+    if (!Number.isFinite(packs) || packs <= 0) continue;
+
+    const manualBaleSize = line.manualDetails?.packsPerBale || 1;
+    const bales = catalogueType
+      ? convertToOutput(line.productCode, line.packsOrdered, productData)
+      : Number((packs / manualBaleSize).toFixed(1));
+
+    if (typeof bales === 'number' && Number.isFinite(bales) && bales > 0) {
+      total += bales;
+    }
+  }
+
+  return Number(total.toFixed(1));
+}
 
 /**
  * Aggregate order-list totals for the Today-at-a-Glance strip. Bale counting

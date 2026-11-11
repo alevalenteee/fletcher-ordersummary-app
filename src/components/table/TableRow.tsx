@@ -178,7 +178,7 @@ export const TableRow: React.FC<TableRowProps> = ({
           {product.packsOrdered}
         </span>
       </td>
-      <td className="hidden sm:table-cell px-3 py-3 truncate text-sm text-neutral-900 font-medium tabular-nums">
+      <td className={`hidden sm:table-cell px-3 py-3 truncate text-sm text-neutral-900 font-medium tabular-nums ${isPrint ? 'text-right' : ''}`}>
         <ProductOutput
           code={product.productCode}
           packs={product.packsOrdered}

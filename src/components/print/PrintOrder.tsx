@@ -3,6 +3,7 @@ import { Destination, Location, Order, Product } from '@/types';
 import { OrderTable } from '../OrderTable';
 import { formatTrailerInfo } from '@/lib/utils';
 import { getDestinationAccent } from '@/utils/destinationColors';
+import { computeBattBales } from '@/utils/orderStats';
 
 interface PrintOrderProps {
   order: Order;
@@ -26,6 +27,7 @@ export const PrintOrder: React.FC<PrintOrderProps> = ({
     order.trailerSize;
 
   const accent = getDestinationAccent(order.destination, destinations);
+  const battBales = computeBattBales(order.products, productData);
 
   return (
     <div
@@ -69,6 +71,14 @@ export const PrintOrder: React.FC<PrintOrderProps> = ({
         locations={locations}
         locationsByIndex={locationsByIndex}
         isPrint
+        footer={(
+          <p className="border-t border-neutral-100 px-3 pt-2 text-right text-xs text-neutral-500">
+            Total Batts{' '}
+            <strong className="font-semibold tabular-nums text-neutral-900">
+              {battBales} {battBales === 1 ? 'Bale' : 'Bales'}
+            </strong>
+          </p>
+        )}
       />
     </div>
   );

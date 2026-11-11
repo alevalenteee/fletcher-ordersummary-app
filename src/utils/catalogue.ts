@@ -1,5 +1,9 @@
 import { OrderProduct, Product, ProductType } from '@/types';
 
+export function isBattType(type: unknown): boolean {
+  return typeof type === 'string' && /^(?:bat|batt)s?$/i.test(type.trim());
+}
+
 // Map the narrower manualDetails.type (which includes 'Unknown') onto the
 // catalogue's ProductType enum. Anything we can't place (i.e. 'Unknown')
 // returns undefined so the catalogue row leaves the Type column empty for

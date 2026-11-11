@@ -21,6 +21,7 @@ interface OrderTableProps {
   /** Keys `${orderId}:${productIndex}` for rows flagged as short on stock. */
   stockWarningKeys?: Set<string>;
   isPrint?: boolean;
+  footer?: React.ReactNode;
   onAddProductToCatalogue?: (product: OrderProduct) => void;
 }
 
@@ -91,7 +92,7 @@ function ProductTable({
         <col style={{ width: '15%' }} />
         <col style={{ width: '15%' }} />
       </colgroup>
-      <TableHeader />
+      <TableHeader isPrint={rowProps.isPrint} />
       <tbody>{renderProductRows(order, productData, indexes, rowProps)}</tbody>
     </table>
   );
@@ -107,6 +108,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   locationsByIndex = {},
   stockWarningKeys,
   isPrint = false,
+  footer,
   onAddProductToCatalogue,
 }) => {
   const rowProps = {
@@ -159,6 +161,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
 
   if (usePrintTrailerGroups) {
     const groups = buildPrintTrailerGroups(order);
+    const trailerInset = 'border-x-2 border-transparent px-2';
 
     return (
       <div className="overflow-x-auto print:overflow-visible space-y-3">
@@ -181,15 +184,17 @@ export const OrderTable: React.FC<OrderTableProps> = ({
           }
 
           return (
-            <ProductTable
-              key="unassigned"
-              order={order}
-              productData={productData}
-              indexes={group.productIndexes}
-              rowProps={rowProps}
-            />
+            <div key="unassigned" className={trailerInset}>
+              <ProductTable
+                order={order}
+                productData={productData}
+                indexes={group.productIndexes}
+                rowProps={rowProps}
+              />
+            </div>
           );
         })}
+        {footer ? <div className={trailerInset}>{footer}</div> : null}
       </div>
     );
   }
@@ -202,6 +207,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
         indexes={allIndexes}
         rowProps={rowProps}
       />
+      {footer}
     </div>
   );
 };

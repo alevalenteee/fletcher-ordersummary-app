@@ -1,4 +1,5 @@
 import { Product, ProductType, PRODUCT_TYPES } from '@/types';
+import { isBattType } from './catalogue';
 
 const CSV_HEADERS = ['Category', 'R-Value', 'NewCode', 'OldCode', 'PacksPerBale', 'Width', 'Type'] as const;
 
@@ -44,6 +45,7 @@ const normaliseType = (raw: string): ProductType | undefined => {
   if (!raw) return undefined;
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
+  if (isBattType(trimmed)) return 'Batt';
   const title = trimmed[0].toUpperCase() + trimmed.slice(1).toLowerCase();
   return isProductType(title) ? title : undefined;
 };

@@ -8,6 +8,7 @@ import '../styles/print.css';
 interface PrintViewProps {
   productData: Product[];
   orders: Order[];
+  loading: boolean;
   locations?: Location[];
   getLocationsFor?: (orderId: string | undefined) => Record<number, string[]>;
   destinations?: Destination[];
@@ -16,13 +17,11 @@ interface PrintViewProps {
 export const PrintView: React.FC<PrintViewProps> = ({
   productData,
   orders,
+  loading,
   locations = [],
   getLocationsFor = () => ({}),
   destinations = []
 }) => {
-  const [loading, setLoading] = React.useState(true);
-  const [error] = React.useState<string | null>(null);
-
   // Sort orders by time
   const sortedOrders = React.useMemo(() => {
     return sortOrdersByTime(orders);
@@ -40,24 +39,10 @@ export const PrintView: React.FC<PrintViewProps> = ({
     };
   }, []);
 
-  React.useEffect(() => {
-    setLoading(false);
-  }, []);
-
   if (loading) {
     return (
       <div className="min-h-screen">
         <LoadingModal isOpen={true} message="Loading orders..." />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-white p-8">
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
-          {error}
-        </div>
       </div>
     );
   }
